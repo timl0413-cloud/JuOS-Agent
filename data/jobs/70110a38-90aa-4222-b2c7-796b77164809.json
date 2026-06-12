@@ -1,0 +1,11 @@
+{
+  "id": "70110a38-90aa-4222-b2c7-796b77164809",
+  "workspace": "timfinance",
+  "workspace_path": "C:\\projects\\TimFinance",
+  "worker": "manual",
+  "prompt": "Check TimOS API action failure",
+  "status": "queued",
+  "created_at": "2026-06-12T07:32:33.818Z",
+  "updated_at": "2026-06-12T07:32:33.818Z",
+  "result": null
+}

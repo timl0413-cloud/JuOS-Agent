@@ -1,0 +1,22 @@
+{
+  "workspaces": [
+    {
+      "id": "timos-agent",
+      "name": "TimOS-Agent",
+      "path": "C:\\projects\\TimOS-Agent",
+      "role": "local agent bridge / worker router project"
+    },
+    {
+      "id": "timfinance",
+      "name": "TimFinance",
+      "path": "C:\\projects\\TimFinance",
+      "role": "TimFinance features and TimOS task/project functionality"
+    },
+    {
+      "id": "nova-reading",
+      "name": "nova-reading",
+      "path": "C:\\projects\\nova-reading",
+      "role": "reading / learning app"
+    }
+  ]
+}

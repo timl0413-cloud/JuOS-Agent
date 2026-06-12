@@ -1,0 +1,19 @@
+{
+  "workers": [
+    {
+      "id": "manual",
+      "name": "Manual",
+      "description": "Human-driven work; no automated runner"
+    },
+    {
+      "id": "cursor",
+      "name": "Cursor",
+      "description": "Cursor IDE agent (label only in v0.1)"
+    },
+    {
+      "id": "codex",
+      "name": "Codex",
+      "description": "Codex CLI agent (label only in v0.1)"
+    }
+  ]
+}
