@@ -1,0 +1,10 @@
+{
+  "cursor_agent": {
+    "node_path": "C:\\Users\\timl0\\AppData\\Local\\cursor-agent\\versions\\2026.06.12-01-15-52-7244546\\node.exe",
+    "index_path": "C:\\Users\\timl0\\AppData\\Local\\cursor-agent\\versions\\2026.06.12-01-15-52-7244546\\index.js"
+  },
+  "safety": {
+    "allowed_workspace_root": "C:\\projects",
+    "require_confirm_execution": true
+  }
+}

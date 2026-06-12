@@ -8,7 +8,7 @@
     {
       "id": "cursor",
       "name": "Cursor",
-      "description": "Cursor IDE agent (label only in v0.1)"
+      "description": "Cursor Agent via local node/index entrypoint"
     },
     {
       "id": "codex",

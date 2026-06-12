@@ -1,6 +1,6 @@
 {
   "name": "timos-agent",
-  "version": "0.1.0",
+  "version": "0.2.1",
   "description": "Local coding worker router — register workspaces, workers, and local jobs",
   "private": true,
   "type": "commonjs",
