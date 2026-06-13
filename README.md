@@ -154,7 +154,7 @@ Authorization: Bearer <token>
 copy config\auth.json.example config\auth.json
 ```
 
-Edit `config/auth.json` and replace `replace-with-local-secret` with a local secret.
+Edit `config/auth.json` and set secrets for both token profiles (`xiaoju-action-create-read` and `tim-local-operator`).
 
 Start the server:
 
@@ -180,16 +180,50 @@ node scripts/server.js
 | POST `/jobs/:id/approve` | `jobs:approve` |
 | POST `/jobs/:id/run` | `jobs:run` |
 
-### GPT Action readiness
+### GPT Action readiness (v0.4)
 
-OpenAPI schema: `docs/openapi/timos-agent-action.openapi.yaml`
+OpenAPI schema (operator/internal): `docs/openapi/timos-agent-action.openapi.yaml`
 
 - Replace `https://YOUR-TUNNEL-URL` with your tunnel or deployed coordinator URL
-- Configure GPT Action authentication as API key / bearer auth using the same token
+- Configure bearer auth using the operator token locally
 - ChatGPT cannot call `127.0.0.1` directly — use a tunnel or deployed coordinator later
 - Do not expose the API without auth
 
-### Auth smoke test (does not run Cursor by default)
+## HTTP API (v0.5 — action-safe GPT permissions)
+
+Split token profiles so XiaoJu GPT Action cannot approve or run jobs.
+
+| Token profile | Scopes | Use |
+|---------------|--------|-----|
+| `xiaoju-action-create-read` | `jobs:read`, `jobs:create` | GPT Action only |
+| `tim-local-operator` | all four scopes | Tim / local operator only |
+
+### GPT Action import
+
+Use the action-safe schema only:
+
+```
+docs/openapi/timos-agent-action-safe.openapi.yaml
+```
+
+**Never** import the full operator schema (`timos-agent-action.openapi.yaml`) into XiaoJu GPT Action.
+
+- Put the `xiaoju-action-create-read` token in GPT Action bearer auth
+- Keep the `tim-local-operator` token local with Tim
+- Approval and run remain local/operator only
+
+See `docs/security/action-safety.md` for the full safety boundary.
+
+### Action-safe smoke test
+
+```bash
+node scripts/server.js
+node scripts/api-action-safe-smoke-test.js
+```
+
+Verifies the action token can create/read but receives `403 insufficient_scope` on approve and run.
+
+### Operator smoke test (does not run Cursor by default)
 
 ```bash
 node scripts/server.js

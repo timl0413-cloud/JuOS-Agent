@@ -1,13 +1,13 @@
 openapi: 3.1.0
 info:
-  title: TimOS-Agent API (Operator / Internal)
+  title: TimOS-Agent API (XiaoJu GPT Action — Safe)
   description: |
-    INTERNAL / OPERATOR ONLY — do not import into XiaoJu GPT Action.
+    Action-safe schema for XiaoJu GPT Action import.
 
-    Full local API including approve and run endpoints.
-    Use docs/openapi/timos-agent-action-safe.openapi.yaml for GPT Action.
+    Includes create and read only. Does NOT include approve or run.
+    Jobs created via this API require human/operator approval before execution.
 
-    Jobs created via API require approval before execution.
+    Use token profile xiaoju-action-create-read (jobs:read, jobs:create only).
   version: 0.5.0
 
 servers:
@@ -69,6 +69,9 @@ paths:
     post:
       operationId: createJob
       summary: Create a job awaiting approval
+      description: |
+        Creates a job with status needs_approval.
+        XiaoJu cannot approve or run jobs — operator approval is required separately.
       requestBody:
         required: true
         content:
@@ -126,107 +129,12 @@ paths:
         "503":
           $ref: "#/components/responses/AuthNotConfigured"
 
-  /jobs/{id}/approve:
-    post:
-      operationId: approveJob
-      summary: Approve a job awaiting approval
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ApproveJobRequest"
-      responses:
-        "200":
-          description: Job approved
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Job"
-        "400":
-          description: Invalid request
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          description: Forbidden
-          content:
-            application/json:
-              schema:
-                oneOf:
-                  - $ref: "#/components/schemas/ErrorResponse"
-                  - $ref: "#/components/schemas/InsufficientScopeError"
-        "404":
-          description: Job not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "503":
-          $ref: "#/components/responses/AuthNotConfigured"
-
-  /jobs/{id}/run:
-    post:
-      operationId: runJob
-      summary: Run an approved job
-      description: |
-        Executes an approved job. Requires confirm_execution to be true.
-        Refuses queued or needs_approval jobs.
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/RunJobRequest"
-      responses:
-        "200":
-          description: Job finished
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Job"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          description: Forbidden
-          content:
-            application/json:
-              schema:
-                oneOf:
-                  - $ref: "#/components/schemas/ErrorResponse"
-                  - $ref: "#/components/schemas/InsufficientScopeError"
-        "404":
-          description: Job not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "503":
-          $ref: "#/components/responses/AuthNotConfigured"
-
 components:
   securitySchemes:
     BearerAuth:
       type: http
       scheme: bearer
-      description: API token from config/auth.json
+      description: xiaoju-action-create-read token (jobs:read, jobs:create only)
 
   responses:
     Unauthorized:
@@ -349,26 +257,6 @@ components:
           type: string
           description: Execution mode hint
           example: read_only
-
-    ApproveJobRequest:
-      type: object
-      required: [approved_by]
-      properties:
-        approved_by:
-          type: string
-          example: tim
-        approval_note:
-          type: string
-          example: Approved read-only inspection
-
-    RunJobRequest:
-      type: object
-      required: [confirm_execution]
-      properties:
-        confirm_execution:
-          type: boolean
-          description: Must be true to execute the job
-          example: true
 
     ErrorResponse:
       type: object

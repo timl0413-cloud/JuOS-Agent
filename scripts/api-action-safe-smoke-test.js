@@ -5,36 +5,35 @@ const { authFileExists, loadAuthTokens, findTokenByName } = require("../lib/auth
 const HOST = process.env.TIMOS_AGENT_HOST || "127.0.0.1";
 const PORT = Number(process.env.TIMOS_AGENT_PORT || 8787);
 const BASE_URL = `http://${HOST}:${PORT}`;
-const shouldRun = process.argv.includes("--run");
-const OPERATOR_TOKEN_NAME = "tim-local-operator";
+const ACTION_TOKEN_NAME = "xiaoju-action-create-read";
 
-function loadBearerToken() {
+function loadActionToken() {
   if (!authFileExists()) {
     console.log("config/auth.json is missing.");
     console.log("");
     console.log("Setup:");
     console.log("  1. Copy config/auth.json.example to config/auth.json");
-    console.log("  2. Set secrets for tim-local-operator and xiaoju-action-create-read");
+    console.log("  2. Set secrets for xiaoju-action-create-read and tim-local-operator");
     console.log("  3. Restart node scripts/server.js");
-    console.log("  4. Re-run: node scripts/api-auth-smoke-test.js");
+    console.log("  4. Re-run: node scripts/api-action-safe-smoke-test.js");
     return null;
   }
 
   const tokens = loadAuthTokens();
-  const operator = findTokenByName(OPERATOR_TOKEN_NAME, tokens);
-  const record = operator || (tokens && tokens[0]);
+  const record = findTokenByName(ACTION_TOKEN_NAME, tokens);
 
-  if (!record || !record.token) {
-    console.log("No operator token found in config/auth.json.");
+  if (!record) {
+    console.log(`Token profile "${ACTION_TOKEN_NAME}" not found in config/auth.json.`);
+    console.log("Add the xiaoju-action-create-read profile from config/auth.json.example.");
     return null;
   }
 
   if (
-    record.token === "replace-with-operator-secret" ||
-    record.token === "replace-with-local-secret"
+    !record.token ||
+    record.token === "replace-with-xiaoju-action-secret"
   ) {
-    console.log("config/auth.json exists but operator token is not configured.");
-    console.log("Set a local secret for tim-local-operator before running this test.");
+    console.log(`Token profile "${ACTION_TOKEN_NAME}" is not configured.`);
+    console.log("Set a local secret before running this test.");
     return null;
   }
 
@@ -67,12 +66,19 @@ async function request(method, path, { body, token } = {}) {
   return { status: response.status, ok: response.ok, data };
 }
 
-async function expectFailure(label, result, expectedStatuses) {
-  if (result.ok || !expectedStatuses.includes(result.status)) {
+async function expectFailure(label, result, expectedStatus, expectedError) {
+  if (result.ok || result.status !== expectedStatus) {
     throw new Error(
-      `${label} expected ${expectedStatuses.join(" or ")}, got ${result.status}: ${JSON.stringify(result.data)}`
+      `${label} expected ${expectedStatus}, got ${result.status}: ${JSON.stringify(result.data)}`
     );
   }
+
+  if (expectedError && result.data.error !== expectedError) {
+    throw new Error(
+      `${label} expected error "${expectedError}", got: ${JSON.stringify(result.data)}`
+    );
+  }
+
   console.log(`${label}: blocked (${result.status})`, result.data);
 }
 
@@ -87,30 +93,23 @@ async function expectSuccess(label, result, expectedStatus) {
 }
 
 async function main() {
-  const token = loadBearerToken();
+  const token = loadActionToken();
   if (!token) {
     process.exit(0);
   }
 
-  console.log(`Auth smoke test against ${BASE_URL}`);
+  console.log(`Action-safe smoke test against ${BASE_URL}`);
 
   await expectSuccess("GET /health (no auth)", await request("GET", "/health"), 200);
 
-  await expectFailure(
-    "GET /jobs (no auth)",
-    await request("GET", "/jobs"),
-    [401, 503]
-  );
-
-  const jobs = await expectSuccess(
-    "GET /jobs (auth)",
+  await expectSuccess(
+    "GET /jobs (action token)",
     await request("GET", "/jobs", { token }),
     200
   );
-  console.log("jobs count:", jobs.jobs.length);
 
   const created = await expectSuccess(
-    "POST /jobs (auth)",
+    "POST /jobs (action token)",
     await request("POST", "/jobs", {
       token,
       body: {
@@ -124,36 +123,38 @@ async function main() {
     }),
     201
   );
+
+  if (created.status !== "needs_approval") {
+    throw new Error(
+      `Expected needs_approval, got ${created.status}`
+    );
+  }
   console.log("created job:", created.id, created.status);
 
-  const approved = await expectSuccess(
-    "POST /jobs/:id/approve (auth)",
+  await expectFailure(
+    "POST /jobs/:id/approve (action token)",
     await request("POST", `/jobs/${created.id}/approve`, {
       token,
       body: {
-        approved_by: "tim",
-        approval_note: "Approved read-only inspection",
+        approved_by: "xiaoju",
+        approval_note: "Should be blocked",
       },
     }),
-    200
+    403,
+    "insufficient_scope"
   );
-  console.log("approved job:", approved.id, approved.status);
 
-  if (shouldRun) {
-    const finished = await expectSuccess(
-      "POST /jobs/:id/run (auth)",
-      await request("POST", `/jobs/${created.id}/run`, {
-        token,
-        body: { confirm_execution: true },
-      }),
-      200
-    );
-    console.log("ran job:", finished.id, finished.status);
-  } else {
-    console.log("Skipped POST /jobs/:id/run (pass --run to execute Cursor)");
-  }
+  await expectFailure(
+    "POST /jobs/:id/run (action token)",
+    await request("POST", `/jobs/${created.id}/run`, {
+      token,
+      body: { confirm_execution: true },
+    }),
+    403,
+    "insufficient_scope"
+  );
 
-  console.log("Auth smoke test passed.");
+  console.log("Action-safe smoke test passed.");
 }
 
 main().catch((err) => {

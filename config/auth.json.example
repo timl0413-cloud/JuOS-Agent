@@ -1,8 +1,13 @@
 {
   "api_tokens": [
     {
-      "name": "xiaoju-local-action",
-      "token": "replace-with-local-secret",
+      "name": "xiaoju-action-create-read",
+      "token": "replace-with-xiaoju-action-secret",
+      "scope": ["jobs:read", "jobs:create"]
+    },
+    {
+      "name": "tim-local-operator",
+      "token": "replace-with-operator-secret",
       "scope": ["jobs:read", "jobs:create", "jobs:approve", "jobs:run"]
     }
   ]
