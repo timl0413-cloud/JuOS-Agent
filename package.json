@@ -1,13 +1,14 @@
 {
   "name": "timos-agent",
-  "version": "0.3.0",
-  "description": "Local coding worker router and XiaoJu bridge — workspaces, jobs, and local HTTP API",
+  "version": "0.4.0",
+  "description": "Local coding worker router and XiaoJu bridge — workspaces, jobs, auth-protected HTTP API",
   "private": true,
   "type": "commonjs",
   "scripts": {
     "server": "node scripts/server.js",
     "agent": "node scripts/agent.js",
-    "api-smoke-test": "node scripts/api-smoke-test.js"
+    "api-smoke-test": "node scripts/api-smoke-test.js",
+    "api-auth-smoke-test": "node scripts/api-auth-smoke-test.js"
   },
   "engines": {
     "node": ">=18.0.0"

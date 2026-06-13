@@ -16,6 +16,9 @@ No external npm dependencies. Jobs are stored as JSON files under `data/jobs/`.
 | `config/workspaces.json` | Registered code workspaces |
 | `config/workers.json` | Job runners (`manual`, `cursor`, `codex`) |
 | `config/runtime.json` | Cursor Agent paths and safety settings |
+| `config/auth.json.example` | Example bearer token config (copy to `config/auth.json`) |
+
+Copy `config/auth.json.example` to `config/auth.json` and set a local secret before using protected API endpoints. `config/auth.json` is gitignored.
 
 ### Runtime safety defaults
 
@@ -128,24 +131,77 @@ Content-Type: application/json
 
 Refuses unless the job is `approved`, `approval.approved` is true, and `confirm_execution` is true. Does not run `queued` or `needs_approval` jobs.
 
-### Safety
+### Safety (v0.3)
 
 - Jobs created via API require Tim approval before execution
 - No approval means no run
 - Pushed: false by default — do not use for deploy or migration yet
 - Local bind only (`127.0.0.1`) — not exposed to the network by default
 
-### Smoke test (does not run Cursor by default)
+## HTTP API (v0.4 — bearer auth)
+
+Protected endpoints require:
+
+```http
+Authorization: Bearer <token>
+```
+
+`GET /health` remains public. All other endpoints require a valid token from `config/auth.json`.
+
+### Setup
+
+```bash
+copy config\auth.json.example config\auth.json
+```
+
+Edit `config/auth.json` and replace `replace-with-local-secret` with a local secret.
+
+Start the server:
 
 ```bash
 node scripts/server.js
-node scripts/api-smoke-test.js
 ```
 
-Pass `--run` to the smoke test only when you intend to execute Cursor:
+### Auth errors
+
+| Status | Error | Meaning |
+|--------|-------|---------|
+| 503 | `auth_not_configured` | `config/auth.json` is missing |
+| 401 | `invalid_token` | Missing or wrong bearer token |
+| 403 | `insufficient_scope` | Token lacks required scope |
+
+### Token scopes
+
+| Endpoint | Required scope |
+|----------|----------------|
+| GET `/jobs` | `jobs:read` |
+| GET `/jobs/:id` | `jobs:read` |
+| POST `/jobs` | `jobs:create` |
+| POST `/jobs/:id/approve` | `jobs:approve` |
+| POST `/jobs/:id/run` | `jobs:run` |
+
+### GPT Action readiness
+
+OpenAPI schema: `docs/openapi/timos-agent-action.openapi.yaml`
+
+- Replace `https://YOUR-TUNNEL-URL` with your tunnel or deployed coordinator URL
+- Configure GPT Action authentication as API key / bearer auth using the same token
+- ChatGPT cannot call `127.0.0.1` directly — use a tunnel or deployed coordinator later
+- Do not expose the API without auth
+
+### Auth smoke test (does not run Cursor by default)
 
 ```bash
-node scripts/api-smoke-test.js --run
+node scripts/server.js
+node scripts/api-auth-smoke-test.js
+```
+
+The legacy `api-smoke-test.js` is deprecated in v0.4. Use `api-auth-smoke-test.js`.
+
+Pass `--run` to the auth smoke test only when you intend to execute Cursor:
+
+```bash
+node scripts/api-auth-smoke-test.js --run
 ```
 
 ## Job shape

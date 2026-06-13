@@ -1,2 +1,3 @@
 data/jobs/*.json
 !data/jobs/.gitkeep
+config/auth.json

@@ -1,0 +1,9 @@
+{
+  "api_tokens": [
+    {
+      "name": "xiaoju-local-action",
+      "token": "replace-with-local-secret",
+      "scope": ["jobs:read", "jobs:create", "jobs:approve", "jobs:run"]
+    }
+  ]
+}

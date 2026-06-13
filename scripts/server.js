@@ -3,6 +3,7 @@
 const http = require("http");
 const { URL } = require("url");
 const { loadPackageVersion } = require("../lib/config");
+const { authorizeRequest } = require("../lib/auth");
 const {
   listJobs,
   readJob,
@@ -13,6 +14,14 @@ const { dispatchApprovedJob } = require("../lib/runner");
 
 const HOST = process.env.TIMOS_AGENT_HOST || "127.0.0.1";
 const PORT = Number(process.env.TIMOS_AGENT_PORT || 8787);
+
+const ROUTE_SCOPES = {
+  "jobs-collection-GET": "jobs:read",
+  "job-item-GET": "jobs:read",
+  "jobs-collection-POST": "jobs:create",
+  "job-approve-POST": "jobs:approve",
+  "job-run-POST": "jobs:run",
+};
 
 function sendJson(res, statusCode, body) {
   const payload = JSON.stringify(body, null, 2);
@@ -30,7 +39,7 @@ function readJsonBody(req) {
     req.on("data", (chunk) => {
       data += chunk;
       if (data.length > 1024 * 1024) {
-        reject(new Error("Request body too large"));
+        reject(new Error("Invalid JSON body"));
         req.destroy();
       }
     });
@@ -78,6 +87,31 @@ function parseRoute(urlPath) {
   return { name: "not-found" };
 }
 
+function routeKey(route, method) {
+  if (route.name === "health" || route.name === "not-found") {
+    return route.name;
+  }
+
+  return `${route.name}-${method}`;
+}
+
+function requireAuth(req, res, route, method) {
+  const key = routeKey(route, method);
+  const requiredScope = ROUTE_SCOPES[key];
+
+  if (!requiredScope) {
+    return true;
+  }
+
+  const auth = authorizeRequest(req, requiredScope);
+  if (!auth.ok) {
+    sendJson(res, auth.status, auth.body);
+    return false;
+  }
+
+  return true;
+}
+
 async function handleRequest(req, res) {
   const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
   const route = parseRoute(url.pathname);
@@ -89,6 +123,15 @@ async function handleRequest(req, res) {
         service: "TimOS-Agent",
         version: loadPackageVersion(),
       });
+      return;
+    }
+
+    if (route.name === "not-found") {
+      sendJson(res, 404, { error: "Not found" });
+      return;
+    }
+
+    if (!requireAuth(req, res, route, req.method)) {
       return;
     }
 
@@ -132,11 +175,6 @@ async function handleRequest(req, res) {
 
       const finished = dispatchApprovedJob(job, body.confirm_execution === true);
       sendJson(res, 200, finished);
-      return;
-    }
-
-    if (route.name === "not-found") {
-      sendJson(res, 404, { error: "Not found" });
       return;
     }
 

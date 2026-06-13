@@ -1,0 +1,385 @@
+openapi: 3.1.0
+info:
+  title: TimOS-Agent API
+  description: |
+    Local coding worker router for XiaoJu / GPT Actions.
+    Jobs created via API require approval before execution.
+  version: 0.4.0
+
+servers:
+  - url: https://YOUR-TUNNEL-URL
+    description: Public tunnel or deployed coordinator (replace before use)
+
+security:
+  - BearerAuth: []
+
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      summary: Service health check
+      description: Unauthenticated health probe. Does not require a bearer token.
+      security: []
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, service, version]
+                properties:
+                  ok:
+                    type: boolean
+                    example: true
+                  service:
+                    type: string
+                    example: TimOS-Agent
+                  version:
+                    type: string
+                    example: 0.4.0
+
+  /jobs:
+    get:
+      operationId: listJobs
+      summary: List all jobs
+      responses:
+        "200":
+          description: Job list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [jobs]
+                properties:
+                  jobs:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Job"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/InsufficientScope"
+        "503":
+          $ref: "#/components/responses/AuthNotConfigured"
+    post:
+      operationId: createJob
+      summary: Create a job awaiting approval
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateJobRequest"
+      responses:
+        "201":
+          description: Job created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/InsufficientScope"
+        "503":
+          $ref: "#/components/responses/AuthNotConfigured"
+
+  /jobs/{id}:
+    get:
+      operationId: getJob
+      summary: Get one job by id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Job found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/InsufficientScope"
+        "404":
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          $ref: "#/components/responses/AuthNotConfigured"
+
+  /jobs/{id}/approve:
+    post:
+      operationId: approveJob
+      summary: Approve a job awaiting approval
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApproveJobRequest"
+      responses:
+        "200":
+          description: Job approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/ErrorResponse"
+                  - $ref: "#/components/schemas/InsufficientScopeError"
+        "404":
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          $ref: "#/components/responses/AuthNotConfigured"
+
+  /jobs/{id}/run:
+    post:
+      operationId: runJob
+      summary: Run an approved job
+      description: |
+        Executes an approved job. Requires confirm_execution to be true.
+        Refuses queued or needs_approval jobs.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RunJobRequest"
+      responses:
+        "200":
+          description: Job finished
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/ErrorResponse"
+                  - $ref: "#/components/schemas/InsufficientScopeError"
+        "404":
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          $ref: "#/components/responses/AuthNotConfigured"
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: API token from config/auth.json
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid bearer token
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error: invalid_token
+    InsufficientScope:
+      description: Token lacks required scope
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/InsufficientScopeError"
+    AuthNotConfigured:
+      description: config/auth.json is missing
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error: auth_not_configured
+
+  schemas:
+    Job:
+      type: object
+      required:
+        - id
+        - workspace
+        - workspace_path
+        - worker
+        - prompt
+        - status
+        - created_at
+        - updated_at
+        - result
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspace:
+          type: string
+          example: timfinance
+        workspace_path:
+          type: string
+          example: C:\projects\TimFinance
+        worker:
+          type: string
+          enum: [manual, cursor, codex]
+        prompt:
+          type: string
+        status:
+          type: string
+          enum:
+            - queued
+            - needs_approval
+            - approved
+            - running
+            - completed
+            - failed
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        result:
+          nullable: true
+        requested_by:
+          type: string
+          nullable: true
+          example: xiaoju
+        mode:
+          type: string
+          nullable: true
+          example: read_only
+        approval:
+          type: object
+          nullable: true
+          properties:
+            required:
+              type: boolean
+            approved:
+              type: boolean
+            approved_by:
+              type: string
+              nullable: true
+            approved_at:
+              type: string
+              format: date-time
+              nullable: true
+            approval_note:
+              type: string
+              nullable: true
+
+    CreateJobRequest:
+      type: object
+      required: [workspace, worker, prompt]
+      properties:
+        workspace:
+          type: string
+          description: Registered workspace id
+          example: timfinance
+        worker:
+          type: string
+          description: Worker id
+          enum: [manual, cursor, codex]
+          example: cursor
+        prompt:
+          type: string
+          description: Task prompt for the worker
+          example: Inspect the repository and summarize the app structure. Do not modify files.
+        requested_by:
+          type: string
+          description: Who requested the job
+          example: xiaoju
+        mode:
+          type: string
+          description: Execution mode hint
+          example: read_only
+
+    ApproveJobRequest:
+      type: object
+      required: [approved_by]
+      properties:
+        approved_by:
+          type: string
+          example: tim
+        approval_note:
+          type: string
+          example: Approved read-only inspection
+
+    RunJobRequest:
+      type: object
+      required: [confirm_execution]
+      properties:
+        confirm_execution:
+          type: boolean
+          description: Must be true to execute the job
+          example: true
+
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+
+    InsufficientScopeError:
+      type: object
+      required: [error, required_scope]
+      properties:
+        error:
+          type: string
+          enum: [insufficient_scope]
+        required_scope:
+          type: string
+          example: jobs:read
