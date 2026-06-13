@@ -1,6 +1,6 @@
 # TimOS-Agent
 
-Local coding worker router — register workspaces and workers, queue jobs, and run them through local agents.
+Local coding worker router and XiaoJu bridge — register workspaces and workers, queue jobs, approve them, and run through local agents.
 
 ## Requirements
 
@@ -20,7 +20,7 @@ No external npm dependencies. Jobs are stored as JSON files under `data/jobs/`.
 ### Runtime safety defaults
 
 - `allowed_workspace_root` — jobs may only run under this path (`C:\projects`)
-- `require_confirm_execution` — cursor jobs refuse to run without `--confirm-execution`
+- `require_confirm_execution` — cursor jobs refuse to run without explicit confirmation
 
 ## CLI (v0.1)
 
@@ -41,6 +41,8 @@ node scripts/agent.js job:complete <job-id> "<result>"
 node scripts/agent.js job:fail <job-id> "<error>"
 ```
 
+CLI-created jobs use `status: "queued"` and can be run directly with `--confirm-execution`.
+
 ### Worker behavior
 
 | Worker | `job:run` behavior |
@@ -49,11 +51,9 @@ node scripts/agent.js job:fail <job-id> "<error>"
 | `codex` | Refuses — not available on this machine |
 | `cursor` | Runs Cursor Agent via configured `node_path` + `index_path` |
 
-Cursor jobs wrap the user prompt with TimOS-Agent safety rules before execution. After the agent exits, the job stores stdout, stderr, exit code, git status/diff, and sets status to `completed` or `failed`.
-
 ## CLI (v0.2.1 — Cursor headless read-only)
 
-The cursor runner uses Cursor Agent headless mode for the first safe test:
+The cursor runner uses Cursor Agent headless mode:
 
 - `--print` — non-interactive/script use
 - `--output-format text` — plain text output
@@ -63,12 +63,89 @@ The cursor runner uses Cursor Agent headless mode for the first safe test:
 
 The runner passes `--trust` only. It never passes `--yolo`, `-f`, `--force`, or sandbox-disabling flags.
 
-### Safe read-only test (run when ready)
+## HTTP API (v0.3 — approval gate)
+
+Start the local API:
 
 ```bash
-node scripts/agent.js job:create timfinance cursor "Inspect the repository and summarize the app structure. Do not modify files."
-node scripts/agent.js job:run <job-id> --confirm-execution
-node scripts/agent.js job:show <job-id>
+node scripts/server.js
+```
+
+Default bind: `127.0.0.1:8787`
+
+### Endpoints
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/health` | Service health and version |
+| GET | `/jobs` | List all jobs |
+| GET | `/jobs/:id` | Show one job |
+| POST | `/jobs` | Create job (requires approval before run) |
+| POST | `/jobs/:id/approve` | Approve a pending job |
+| POST | `/jobs/:id/run` | Run an approved job |
+
+### Create job
+
+```http
+POST /jobs
+Content-Type: application/json
+
+{
+  "workspace": "timfinance",
+  "worker": "cursor",
+  "prompt": "Inspect the repository and summarize the app structure. Do not modify files.",
+  "requested_by": "xiaoju",
+  "mode": "read_only"
+}
+```
+
+API-created jobs default to `status: "needs_approval"` with an `approval` object. They cannot run until Tim approves them.
+
+### Approve job
+
+```http
+POST /jobs/:id/approve
+Content-Type: application/json
+
+{
+  "approved_by": "tim",
+  "approval_note": "Approved read-only inspection"
+}
+```
+
+Sets `status` to `"approved"`.
+
+### Run job
+
+```http
+POST /jobs/:id/run
+Content-Type: application/json
+
+{
+  "confirm_execution": true
+}
+```
+
+Refuses unless the job is `approved`, `approval.approved` is true, and `confirm_execution` is true. Does not run `queued` or `needs_approval` jobs.
+
+### Safety
+
+- Jobs created via API require Tim approval before execution
+- No approval means no run
+- Pushed: false by default — do not use for deploy or migration yet
+- Local bind only (`127.0.0.1`) — not exposed to the network by default
+
+### Smoke test (does not run Cursor by default)
+
+```bash
+node scripts/server.js
+node scripts/api-smoke-test.js
+```
+
+Pass `--run` to the smoke test only when you intend to execute Cursor:
+
+```bash
+node scripts/api-smoke-test.js --run
 ```
 
 ## Job shape
@@ -80,14 +157,17 @@ node scripts/agent.js job:show <job-id>
 | `workspace_path` | Absolute path on disk |
 | `worker` | Worker id |
 | `prompt` | Task description |
-| `status` | `queued`, `running`, `completed`, or `failed` |
+| `status` | `queued`, `needs_approval`, `approved`, `running`, `completed`, or `failed` |
 | `created_at` | ISO timestamp |
 | `updated_at` | ISO timestamp |
 | `result` | `null` until finished; cursor jobs include stdout/stderr/git capture |
+| `requested_by` | API only — who requested the job |
+| `mode` | API only — e.g. `read_only` |
+| `approval` | API only — approval gate metadata |
 
 ## Scope
 
 - Plain Node.js, no TypeScript, no external npm packages
-- No database, server, Supabase, or GPT Actions
+- No Supabase or GPT Actions integration in this repo yet
 - Does not modify TimFinance or nova-reading
 - Never auto-commits, pushes, or deploys
