@@ -310,6 +310,74 @@ node scripts/api-auto-run-smoke-test.js --run
 
 The smoke test polls job status until completion. Auto-run uses a non-blocking Cursor path so `/health` and `/jobs/:id` stay responsive while the job runs.
 
+## HTTP API (v0.7 — coordinator bridge stub)
+
+Phone and ChatGPT cannot reach `127.0.0.1`. v0.7 adds the **first phone-reachable connection path design** without exposing the local TimOS-Agent API directly.
+
+### Preferred architecture
+
+**Cloud coordinator / queue + Station1 polling worker**
+
+```
+XiaoJu / phone  -->  cloud coordinator  <--  Station1 poll worker  -->  local TimOS-Agent (127.0.0.1)
+   action token         queue                  station worker token        action token only
+```
+
+- XiaoJu/phone talks to the **coordinator**, not local API
+- Station1 **pulls** jobs outbound (no inbound tunnel to local approve/run)
+- Local auto-run policy (v0.6) remains the execution authority
+- Operator token stays local only
+
+Contract: `docs/bridge/coordinator-contract.md`
+
+### Local stub (test before cloud deploy)
+
+Filesystem queue under `data/coordinator-stub/`:
+
+| Folder | Purpose |
+|--------|---------|
+| `inbox/` | Pending station jobs (simulates coordinator queue) |
+| `claimed/` | Jobs claimed by Station1 worker |
+| `completed/` | Finished with result + `local_job_id` |
+| `failed/` | Validation/policy/execution failures |
+
+JSON job files are gitignored; `.gitkeep` files remain tracked.
+
+### Scripts
+
+Create a test packet in the stub inbox (no Cursor):
+
+```bash
+node scripts/create-coordinator-stub-job.js
+node scripts/create-coordinator-stub-job.js --preview
+```
+
+Station1 polling worker (stub mode — reads inbox, calls local API with action-safe token only):
+
+```bash
+node scripts/server.js
+node scripts/station-poll-worker.js --once
+node scripts/station-poll-worker.js --once --job-id <station-job-uuid>
+```
+
+Coordinator stub smoke test:
+
+```bash
+node scripts/coordinator-stub-smoke-test.js
+node scripts/coordinator-stub-smoke-test.js --run
+```
+
+Dry run validates stub folders, auth token, and auto-run policy. `--run` processes the stub job it just created via `--job-id` (older pending inbox jobs are left untouched).
+
+The stub inbox may contain old pending jobs from earlier tests. `coordinator-stub-smoke-test.js --run` always targets its own newly created job id. Manual worker runs without `--job-id` still claim the oldest pending job for the station.
+
+### v0.7 not included yet
+
+- Cloud coordinator deploy
+- Tunnel / public local API exposure
+- GPT Action wiring to coordinator URL
+- High-risk jobs without operator approval
+
 ## Job shape
 
 | Field | Description |

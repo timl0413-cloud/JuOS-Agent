@@ -2,5 +2,13 @@ data/jobs/*.json
 !data/jobs/.gitkeep
 data/audit/*.json
 !data/audit/.gitkeep
+data/coordinator-stub/inbox/*.json
+!data/coordinator-stub/inbox/.gitkeep
+data/coordinator-stub/claimed/*.json
+!data/coordinator-stub/claimed/.gitkeep
+data/coordinator-stub/completed/*.json
+!data/coordinator-stub/completed/.gitkeep
+data/coordinator-stub/failed/*.json
+!data/coordinator-stub/failed/.gitkeep
 config/auth.json
 config/auto-run-policy.json

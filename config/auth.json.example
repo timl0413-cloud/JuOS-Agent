@@ -9,6 +9,11 @@
       "name": "tim-local-operator",
       "token": "replace-with-operator-secret",
       "scope": ["jobs:read", "jobs:create", "jobs:approve", "jobs:run"]
+    },
+    {
+      "name": "station1-worker",
+      "token": "replace-with-station1-worker-secret",
+      "scope": ["station-jobs:claim", "station-jobs:result"]
     }
   ]
 }
