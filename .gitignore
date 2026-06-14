@@ -12,3 +12,4 @@ data/coordinator-stub/failed/*.json
 !data/coordinator-stub/failed/.gitkeep
 config/auth.json
 config/auto-run-policy.json
+config/worker-profiles.json

@@ -1,0 +1,37 @@
+{
+  "worker_profiles": [
+    {
+      "id": "station1-local",
+      "station": "station1",
+      "location": "local",
+      "availability": "when_computer_on",
+      "can_use_local_cursor": true,
+      "allowed_task_types": ["inspect_only"],
+      "allowed_risk_levels": ["low"],
+      "requires_synced_repo": false,
+      "forbidden": [
+        "local credentials",
+        "deploy",
+        "push",
+        "migrations"
+      ]
+    },
+    {
+      "id": "cloud-readonly",
+      "station": "cloud-readonly",
+      "location": "cloud",
+      "availability": "always_on",
+      "can_use_local_cursor": false,
+      "allowed_task_types": ["inspect_only", "summarize_repo", "propose_patch"],
+      "allowed_risk_levels": ["low"],
+      "requires_synced_repo": true,
+      "forbidden": [
+        "local credentials",
+        "local-only files",
+        "deploy",
+        "push",
+        "migrations"
+      ]
+    }
+  ]
+}

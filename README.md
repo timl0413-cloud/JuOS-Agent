@@ -378,6 +378,53 @@ The stub inbox may contain old pending jobs from earlier tests. `coordinator-stu
 - GPT Action wiring to coordinator URL
 - High-risk jobs without operator approval
 
+## Architecture (v0.8A — replaceable offline-capable workers)
+
+v0.8A **re-scopes** TimOS-Agent from Station1-only bridging toward **offline main-computer operation**. Tim's PC should not need to stay on for XiaoJu to perform eligible work.
+
+### Strategic shift
+
+| Before (v0.7) | After (v0.8A) |
+|---------------|---------------|
+| Phone → coordinator → **Station1 required** → local API | Phone → coordinator → **any eligible worker** |
+| Main computer must be on | `cloud-readonly` can run while Station1 is off |
+
+**Station1 remains useful but optional** — it is the `station1-local` worker profile, not the only execution path.
+
+### Worker profiles
+
+Example config: `config/worker-profiles.json.example`
+
+| Profile | Availability | Role |
+|---------|--------------|------|
+| `station1-local` | when computer on | Local Cursor inspect via v0.6 policy (v0.7 path) |
+| `cloud-readonly` | always on | Repo inspect/summary from synced copy (future runtime) |
+| `always-on-home` | future | Low-power home bridge |
+| `cloud-edit-pr` | future | Patch/PR proposals with approval |
+
+Copy to `config/worker-profiles.json` to customize locally (gitignored).
+
+### Documentation
+
+- Architecture: `docs/architecture/offline-worker-architecture.md`
+- Routing contract: `docs/bridge/worker-routing-contract.md`
+
+### Local validation (no deploy, no network, no Cursor)
+
+```bash
+node scripts/worker-routing-smoke-test.js
+```
+
+Proves in-memory routing rules:
+
+- `cloud-readonly` accepts low-risk `inspect_only` with `repo_ref` while Station1 is off
+- `cloud-readonly` rejects high risk, missing `repo_ref`, local files, credentials, deploy, push, migrations
+- `station1-local` is not required for cloud eligibility
+
+### v0.8A does not deploy anything
+
+Real phone/offline use requires **v0.8B** (cloud coordinator + cloud-readonly worker runtime + repo sync). v0.8A is architecture and local validation only.
+
 ## Job shape
 
 | Field | Description |
