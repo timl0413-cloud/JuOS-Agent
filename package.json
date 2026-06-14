@@ -1,7 +1,7 @@
 {
   "name": "timos-agent",
-  "version": "0.5.0",
-  "description": "Local coding worker router and XiaoJu bridge — action-safe GPT permissions and operator split",
+  "version": "0.6.0",
+  "description": "Local coding worker router and XiaoJu bridge — supervised auto-run policy for low-risk inspect jobs",
   "private": true,
   "type": "commonjs",
   "scripts": {
@@ -9,7 +9,8 @@
     "agent": "node scripts/agent.js",
     "api-smoke-test": "node scripts/api-smoke-test.js",
     "api-auth-smoke-test": "node scripts/api-auth-smoke-test.js",
-    "api-action-safe-smoke-test": "node scripts/api-action-safe-smoke-test.js"
+    "api-action-safe-smoke-test": "node scripts/api-action-safe-smoke-test.js",
+    "api-auto-run-smoke-test": "node scripts/api-auto-run-smoke-test.js"
   },
   "engines": {
     "node": ">=18.0.0"

@@ -1,3 +1,6 @@
 data/jobs/*.json
 !data/jobs/.gitkeep
+data/audit/*.json
+!data/audit/.gitkeep
 config/auth.json
+config/auto-run-policy.json

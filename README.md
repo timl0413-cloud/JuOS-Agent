@@ -17,6 +17,7 @@ No external npm dependencies. Jobs are stored as JSON files under `data/jobs/`.
 | `config/workers.json` | Job runners (`manual`, `cursor`, `codex`) |
 | `config/runtime.json` | Cursor Agent paths and safety settings |
 | `config/auth.json.example` | Example bearer token config (copy to `config/auth.json`) |
+| `config/auto-run-policy.json.example` | Example auto-run policy (copy to `config/auto-run-policy.json`) |
 
 Copy `config/auth.json.example` to `config/auth.json` and set a local secret before using protected API endpoints. `config/auth.json` is gitignored.
 
@@ -238,6 +239,77 @@ Pass `--run` to the auth smoke test only when you intend to execute Cursor:
 node scripts/api-auth-smoke-test.js --run
 ```
 
+## HTTP API (v0.6 — supervised auto-run policy)
+
+Reduce Tim's manual bridge burden: XiaoJu can request low-risk inspect-only jobs with `auto_run_requested: true`, and TimOS-Agent evaluates local policy to auto-approve and auto-run eligible jobs. High-risk jobs still require operator approval.
+
+### Principles
+
+- **XiaoJu action token stays read/create only** — no `jobs:approve` or `jobs:run` scope
+- **TimOS-Agent local policy controls auto-run** — see `config/auto-run-policy.json.example`
+- **Low-risk inspect-only jobs can auto-run** when all policy fields match (station, worker, mode, task_type, risk_level, workspace allowlist, prompt phrases)
+- **High-risk or mismatched jobs remain `needs_approval`**
+- **Phone/GPT Action still needs a reachable endpoint later** — tunnel or cloud coordinator; do not expose full operator schema/token to GPT Action
+
+### Auto-run policy setup
+
+```bash
+copy config\auto-run-policy.json.example config\auto-run-policy.json
+```
+
+Edit rules locally. `config/auto-run-policy.json` is gitignored. If missing or disabled, auto-run is off and all API jobs require approval.
+
+### Create job with auto-run request
+
+```http
+POST /jobs
+Authorization: Bearer <xiaoju-action-create-read token>
+Content-Type: application/json
+
+{
+  "station": "station1",
+  "workspace": "TimOS-Agent",
+  "worker": "cursor",
+  "mode": "read_only",
+  "task_type": "inspect_only",
+  "risk_level": "low",
+  "auto_run_requested": true,
+  "requested_by": "xiaoju",
+  "prompt": "Inspect this repository and summarize the current structure. Do not modify files."
+}
+```
+
+When policy matches:
+
+- `status` is `auto_running` in the create response
+- `approval.approved_by` is `policy:<policy_id>`
+- TimOS-Agent starts Cursor **asynchronously** after responding (non-blocking)
+- Poll `GET /jobs/:id` for `running`, then `completed` or `failed`
+- Audit record written under `data/audit/`
+
+When policy does not match:
+
+- `status` remains `needs_approval`
+- `policy_result` explains why
+- Tim approves/runs locally with operator token as before
+
+### Auto-run smoke test
+
+Dry run (validates config, does not execute Cursor):
+
+```bash
+node scripts/server.js
+node scripts/api-auto-run-smoke-test.js
+```
+
+Execute Cursor (requires policy file and `--run`):
+
+```bash
+node scripts/api-auto-run-smoke-test.js --run
+```
+
+The smoke test polls job status until completion. Auto-run uses a non-blocking Cursor path so `/health` and `/jobs/:id` stay responsive while the job runs.
+
 ## Job shape
 
 | Field | Description |
@@ -247,12 +319,17 @@ node scripts/api-auth-smoke-test.js --run
 | `workspace_path` | Absolute path on disk |
 | `worker` | Worker id |
 | `prompt` | Task description |
-| `status` | `queued`, `needs_approval`, `approved`, `running`, `completed`, or `failed` |
+| `status` | `queued`, `needs_approval`, `approved`, `auto_running`, `running`, `completed`, or `failed` |
 | `created_at` | ISO timestamp |
 | `updated_at` | ISO timestamp |
 | `result` | `null` until finished; cursor jobs include stdout/stderr/git capture |
 | `requested_by` | API only — who requested the job |
 | `mode` | API only — e.g. `read_only` |
+| `station` | API only — target station for policy (e.g. `station1`) |
+| `task_type` | API only — e.g. `inspect_only` |
+| `risk_level` | API only — e.g. `low` |
+| `auto_run_requested` | API only — request local policy auto-run evaluation |
+| `policy_result` | API only — policy decision when `auto_run_requested` is true |
 | `approval` | API only — approval gate metadata |
 
 ## Scope

@@ -9,8 +9,10 @@ const {
   readJob,
   createApiJob,
   approveJob,
+  isJobPolicyAutoRunnable,
 } = require("../lib/jobs");
-const { dispatchApprovedJob } = require("../lib/runner");
+const { scheduleApprovedJobRun, dispatchApprovedJob } = require("../lib/runner");
+const { writeAutoRunAudit, updateAutoRunAudit } = require("../lib/audit");
 
 const HOST = process.env.TIMOS_AGENT_HOST || "127.0.0.1";
 const PORT = Number(process.env.TIMOS_AGENT_PORT || 8787);
@@ -112,6 +114,56 @@ function requireAuth(req, res, route, method) {
   return true;
 }
 
+function schedulePolicyAutoRun(job) {
+  const auditRecord = writeAutoRunAudit({
+    job_id: job.id,
+    auto_run_requested: job.auto_run_requested,
+    eligible: true,
+    policy_id: job.policy_result.policy_id,
+    reason: job.policy_result.reason,
+    workspace: job.workspace,
+    worker: job.worker,
+    mode: job.mode,
+    task_type: job.task_type,
+    risk_level: job.risk_level,
+    started_run: true,
+    completed_status: null,
+  });
+
+  scheduleApprovedJobRun(job.id, {
+    onComplete: (err, finished) => {
+      updateAutoRunAudit(auditRecord._audit_file, {
+        completed_status: err ? finished?.status || "failed" : finished?.status,
+      });
+    },
+  });
+}
+
+function recordPolicyDecision(job) {
+  if (!job.auto_run_requested || !job.policy_result) {
+    return;
+  }
+
+  if (job.policy_result.eligible) {
+    return;
+  }
+
+  writeAutoRunAudit({
+    job_id: job.id,
+    auto_run_requested: true,
+    eligible: false,
+    policy_id: job.policy_result.policy_id,
+    reason: job.policy_result.reason,
+    workspace: job.workspace,
+    worker: job.worker,
+    mode: job.mode,
+    task_type: job.task_type,
+    risk_level: job.risk_level,
+    started_run: false,
+    completed_status: null,
+  });
+}
+
 async function handleRequest(req, res) {
   const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
   const route = parseRoute(url.pathname);
@@ -153,6 +205,13 @@ async function handleRequest(req, res) {
     if (route.name === "jobs-collection" && req.method === "POST") {
       const body = await readJsonBody(req);
       const job = createApiJob(body);
+
+      if (isJobPolicyAutoRunnable(job)) {
+        schedulePolicyAutoRun(job);
+      } else {
+        recordPolicyDecision(job);
+      }
+
       sendJson(res, 201, job);
       return;
     }

@@ -5,10 +5,15 @@ info:
     Action-safe schema for XiaoJu GPT Action import.
 
     Includes create and read only. Does NOT include approve or run.
-    Jobs created via this API require human/operator approval before execution.
+    Jobs created with auto_run_requested may be auto-approved and auto-run
+    by local TimOS-Agent policy when they match low-risk inspect-only rules.
+
+    XiaoJu can request auto_run_requested: true, but TimOS-Agent local policy
+    decides whether the job actually runs. XiaoJu still cannot call approve
+    or run endpoints.
 
     Use token profile xiaoju-action-create-read (jobs:read, jobs:create only).
-  version: 0.5.0
+  version: 0.6.0
 
 servers:
   - url: https://YOUR-TUNNEL-URL
@@ -41,7 +46,7 @@ paths:
                     example: TimOS-Agent
                   version:
                     type: string
-                    example: 0.5.0
+                    example: 0.6.0
 
   /jobs:
     get:
@@ -68,10 +73,22 @@ paths:
           $ref: "#/components/responses/AuthNotConfigured"
     post:
       operationId: createJob
-      summary: Create a job awaiting approval
+      summary: Create a job (optionally request policy auto-run)
       description: |
-        Creates a job with status needs_approval.
-        XiaoJu cannot approve or run jobs — operator approval is required separately.
+        Creates a job. By default status is needs_approval.
+
+        When auto_run_requested is true, TimOS-Agent evaluates local policy
+        (config/auto-run-policy.json). Eligible low-risk inspect-only jobs are
+        auto-approved and started asynchronously with status auto_running.
+
+        Poll GET /jobs/{id} for running/completed/failed. The create response
+        returns immediately; Cursor runs in the background without blocking API
+        requests.
+
+        Ineligible jobs remain needs_approval and include policy_result.
+
+        XiaoJu cannot approve or run jobs — those endpoints are not in this
+        schema and the action token lacks jobs:approve / jobs:run scope.
       requestBody:
         required: true
         content:
@@ -194,6 +211,7 @@ components:
             - queued
             - needs_approval
             - approved
+            - auto_running
             - running
             - completed
             - failed
@@ -213,6 +231,34 @@ components:
           type: string
           nullable: true
           example: read_only
+        station:
+          type: string
+          nullable: true
+          example: station1
+        task_type:
+          type: string
+          nullable: true
+          example: inspect_only
+        risk_level:
+          type: string
+          nullable: true
+          example: low
+        auto_run_requested:
+          type: boolean
+          example: true
+        policy_result:
+          type: object
+          nullable: true
+          properties:
+            eligible:
+              type: boolean
+            policy_id:
+              type: string
+              nullable: true
+            reason:
+              type: string
+            required_approval:
+              type: boolean
         approval:
           type: object
           nullable: true
@@ -257,6 +303,24 @@ components:
           type: string
           description: Execution mode hint
           example: read_only
+        station:
+          type: string
+          description: Target station id for policy evaluation
+          example: station1
+        task_type:
+          type: string
+          description: Task classification for policy evaluation
+          example: inspect_only
+        risk_level:
+          type: string
+          description: Declared risk level for policy evaluation
+          example: low
+        auto_run_requested:
+          type: boolean
+          description: |
+            Request TimOS-Agent to evaluate local auto-run policy.
+            Policy decides whether the job auto-runs; XiaoJu cannot force execution.
+          example: true
 
     ErrorResponse:
       type: object

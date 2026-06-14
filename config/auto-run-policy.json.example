@@ -1,0 +1,26 @@
+{
+  "enabled": true,
+  "rules": [
+    {
+      "id": "station1-read-only-inspect",
+      "description": "Allow read-only inspect jobs to auto-run on Station1",
+      "allowed": true,
+      "station": "station1",
+      "worker": "cursor",
+      "mode": "read_only",
+      "task_type": "inspect_only",
+      "risk_level": "low",
+      "allowed_workspaces": ["TimOS-Agent", "timfinance", "nova-reading"],
+      "required_prompt_phrases": ["Do not modify files"],
+      "forbidden_prompt_phrases": [
+        "push",
+        "deploy",
+        "migration",
+        "delete",
+        "remove files",
+        "modify files",
+        "edit files"
+      ]
+    }
+  ]
+}
