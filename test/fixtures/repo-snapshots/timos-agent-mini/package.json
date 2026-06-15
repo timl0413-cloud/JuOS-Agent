@@ -1,0 +1,7 @@
+{
+  "name": "timos-agent-mini-fixture",
+  "version": "0.1.0",
+  "description": "Fixture snapshot for cloud-readonly worker smoke tests",
+  "private": true,
+  "main": "src/index.js"
+}

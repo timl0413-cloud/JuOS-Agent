@@ -1,7 +1,7 @@
 {
   "name": "timos-agent",
-  "version": "0.8.0",
-  "description": "Local coding worker router and XiaoJu bridge — offline-capable replaceable worker routing foundation",
+  "version": "0.8.1",
+  "description": "Local coding worker router and XiaoJu bridge — cloud-readonly worker runtime POC",
   "private": true,
   "type": "commonjs",
   "scripts": {
@@ -14,7 +14,8 @@
     "create-coordinator-stub-job": "node scripts/create-coordinator-stub-job.js",
     "station-poll-worker": "node scripts/station-poll-worker.js",
     "coordinator-stub-smoke-test": "node scripts/coordinator-stub-smoke-test.js",
-    "worker-routing-smoke-test": "node scripts/worker-routing-smoke-test.js"
+    "worker-routing-smoke-test": "node scripts/worker-routing-smoke-test.js",
+    "smoke:cloud-readonly": "node scripts/cloud-readonly-worker-smoke-test.js"
   },
   "engines": {
     "node": ">=18.0.0"

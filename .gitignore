@@ -13,3 +13,4 @@ data/coordinator-stub/failed/*.json
 config/auth.json
 config/auto-run-policy.json
 config/worker-profiles.json
+config/repo-sources.json

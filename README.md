@@ -423,7 +423,57 @@ Proves in-memory routing rules:
 
 ### v0.8A does not deploy anything
 
-Real phone/offline use requires **v0.8B** (cloud coordinator + cloud-readonly worker runtime + repo sync). v0.8A is architecture and local validation only.
+Real phone/offline use requires **v0.8B runtime + v0.8C deploy** (hosted worker, repo sync, coordinator). v0.8A is architecture and routing validation only.
+
+## Cloud-readonly worker runtime (v0.8B — local POC)
+
+v0.8B implements a **local proof-of-concept runtime** for the `cloud-readonly` worker. Jobs run from a **repo snapshot** via `repo_ref` — not from Station1 local files, local API, or Cursor.
+
+### Flow
+
+```
+repo_ref → config/repo-sources.json → snapshot_path → cloud-readonly worker → result
+```
+
+- Does **not** require Station1 or main computer to be on
+- Does **not** deploy to cloud yet
+- Does **not** call local TimOS-Agent API or Cursor
+- Does **not** execute shell commands or modify files
+
+### Config
+
+| File | Purpose |
+|------|---------|
+| `config/repo-sources.json.example` | Maps `repo_ref` to snapshot paths |
+| `test/fixtures/repo-snapshots/timos-agent-mini/` | Minimal fake synced repo for POC |
+
+Copy `config/repo-sources.json.example` to `config/repo-sources.json` to customize locally (gitignored).
+
+### Supported POC tasks
+
+- `inspect_only` — file tree + metadata from snapshot
+- `summarize_repo` — summary from README / package.json / docs
+
+### Smoke test
+
+```bash
+node scripts/cloud-readonly-worker-smoke-test.js
+# or
+npm run smoke:cloud-readonly
+```
+
+No network, no Cursor, no local API.
+
+### Documentation
+
+`docs/architecture/cloud-readonly-worker-runtime.md`
+
+### What remains for true phone/offline usage
+
+- Real **cloud coordinator** deploy (queue, not filesystem stub)
+- **Hosted** cloud-readonly worker polling coordinator
+- **Repo sync pipeline** (live GitHub → cloud snapshot)
+- **GPT Action** wiring to coordinator URL
 
 ## Job shape
 

@@ -1,0 +1,11 @@
+{
+  "repos": [
+    {
+      "repo_ref": "timos-agent-snapshot",
+      "display_name": "TimOS-Agent Snapshot Fixture",
+      "snapshot_path": "test/fixtures/repo-snapshots/timos-agent-mini",
+      "allowed_worker_profiles": ["cloud-readonly"],
+      "read_only": true
+    }
+  ]
+}
