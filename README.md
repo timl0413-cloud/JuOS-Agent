@@ -545,6 +545,53 @@ node scripts/command-channel-worker.js --once --http
 
 Do not deploy until `npm run smoke:command-channel` passes locally.
 
+### Deployment-ready no-paste command channel
+
+| Backend | `COMMAND_CHANNEL_BACKEND` | Use |
+|---------|---------------------------|-----|
+| Filesystem | `filesystem` (default) | Local smoke tests only — **not** for public/serverless deploy |
+| Supabase | `supabase` | Deployed coordinator API — durable Postgres storage |
+
+Deployed architecture:
+
+```
+XiaoJu → HTTPS coordinator API → Supabase command_channel_jobs → worker poll → cloud-readonly runtime
+```
+
+#### SQL migration
+
+Apply `docs/sql/command-channel-jobs.sql` in Supabase before deploy.
+
+#### Deploy env vars
+
+| Variable | Role |
+|----------|------|
+| `COMMAND_CHANNEL_BACKEND` | `supabase` on deploy |
+| `SUPABASE_URL` | Supabase project URL |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server-side only — never expose to XiaoJu/worker |
+| `XIAOJU_ACTION_TOKEN` | GPT Action bearer |
+| `WORKER_TOKEN` | Worker polling bearer |
+
+Full guide: `docs/bridge/command-channel-deployment.md`
+
+#### Local tests
+
+```bash
+node scripts/command-channel-smoke-test.js
+node scripts/command-channel-supabase-contract-test.js
+```
+
+Contract test uses mocked fetch by default (`--live` for real Supabase).
+
+#### Deploy steps
+
+1. Apply SQL migration
+2. Set env vars on host; `COMMAND_CHANNEL_BACKEND=supabase`
+3. `node scripts/server-command-channel.js`
+4. Run worker: `node scripts/command-channel-worker.js --http` (daemonize on always-on host)
+5. Import `docs/openapi/xiaoju-command-channel.openapi.yaml` into GPT Action
+6. Test create → poll result from XiaoJu
+
 ## Job shape
 
 | Field | Description |

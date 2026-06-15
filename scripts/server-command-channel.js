@@ -10,8 +10,10 @@ const {
   listJobs,
   claimJob,
   submitResult,
-  DEFAULT_WORKER_PROFILE,
-} = require("../lib/command-channel-coordinator");
+  getBackendStatus,
+  assertBackendReady,
+} = require("../lib/command-channel-store");
+const { DEFAULT_WORKER_PROFILE } = require("../lib/command-channel-core");
 
 const HOST = process.env.COMMAND_CHANNEL_HOST || "127.0.0.1";
 const PORT = Number(process.env.COMMAND_CHANNEL_PORT || 8790);
@@ -136,6 +138,7 @@ async function handleRequest(req, res) {
         ok: true,
         service: "TimOS-Agent Command Channel",
         version: loadPackageVersion(),
+        backend: getBackendStatus(),
       });
       return;
     }
@@ -151,7 +154,7 @@ async function handleRequest(req, res) {
 
     if (route.name === "remote-jobs-collection" && req.method === "POST") {
       const body = await readJsonBody(req);
-      const job = createJob(body);
+      const job = await createJob(body);
       sendJson(res, 201, job);
       return;
     }
@@ -163,12 +166,12 @@ async function handleRequest(req, res) {
         target_worker_profile:
           url.searchParams.get("target_worker_profile") || undefined,
       };
-      sendJson(res, 200, { jobs: listJobs(filter) });
+      sendJson(res, 200, { jobs: await listJobs(filter) });
       return;
     }
 
     if (route.name === "remote-job-item" && req.method === "GET") {
-      const job = getJob(route.jobId);
+      const job = await getJob(route.jobId);
       if (!job) {
         sendJson(res, 404, { error: `Job not found: ${route.jobId}` });
         return;
@@ -181,7 +184,7 @@ async function handleRequest(req, res) {
       const workerProfile =
         url.searchParams.get("worker_profile") || DEFAULT_WORKER_PROFILE;
       const jobId = url.searchParams.get("job_id") || undefined;
-      const job = claimJob(workerProfile, { jobId });
+      const job = await claimJob(workerProfile, { jobId });
 
       if (!job) {
         sendNoContent(res);
@@ -194,7 +197,7 @@ async function handleRequest(req, res) {
 
     if (route.name === "worker-job-result" && req.method === "POST") {
       const body = await readJsonBody(req);
-      const job = submitResult(route.jobId, body);
+      const job = await submitResult(route.jobId, body);
       sendJson(res, 200, job);
       return;
     }
@@ -206,7 +209,9 @@ async function handleRequest(req, res) {
 
     const statusCode = validationErrors
       ? 400
-      : message.includes("not found")
+      : err.code === "supabase_not_configured"
+        ? 503
+        : message.includes("not found")
         ? 404
         : message.includes("not pending") ||
             message.includes("not claimed") ||
@@ -225,6 +230,16 @@ const server = http.createServer((req, res) => {
   handleRequest(req, res);
 });
 
+try {
+  assertBackendReady();
+} catch (err) {
+  console.error(`Command channel backend error: ${err.message}`);
+  process.exit(1);
+}
+
 server.listen(PORT, HOST, () => {
-  console.log(`TimOS-Agent command channel listening on http://${HOST}:${PORT}`);
+  const backendStatus = getBackendStatus();
+  console.log(
+    `TimOS-Agent command channel listening on http://${HOST}:${PORT} (backend=${backendStatus.backend})`
+  );
 });

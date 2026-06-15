@@ -8,7 +8,13 @@ info:
     Does NOT include worker claim/result, approve, run, or operator endpoints.
 
     Use XIAOJU_ACTION_TOKEN bearer auth only.
-  version: 0.9.0
+  version: 0.9.1
+  description: |
+    No-paste command channel for XiaoJu GPT Action.
+
+    Create and read remote jobs only. Worker claim/result endpoints are internal.
+    Deployed coordinator uses Supabase durable storage (COMMAND_CHANNEL_BACKEND=supabase).
+    Local tests may use filesystem backend.
 
 servers:
   - url: https://YOUR-COORDINATOR-URL

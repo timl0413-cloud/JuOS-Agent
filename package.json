@@ -18,7 +18,8 @@
     "smoke:cloud-readonly": "node scripts/cloud-readonly-worker-smoke-test.js",
     "smoke:command-channel": "node scripts/command-channel-smoke-test.js",
     "server:command-channel": "node scripts/server-command-channel.js",
-    "worker:command-channel-once": "node scripts/command-channel-worker.js --once"
+    "worker:command-channel-once": "node scripts/command-channel-worker.js --once",
+    "test:command-channel-supabase-contract": "node scripts/command-channel-supabase-contract-test.js"
   },
   "engines": {
     "node": ">=18.0.0"
