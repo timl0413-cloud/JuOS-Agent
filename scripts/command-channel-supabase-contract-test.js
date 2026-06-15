@@ -11,6 +11,10 @@ const {
   submitResult,
   isSupabaseConfigured,
   getSupabaseConfig,
+  postgrestEqValue,
+  postgrestUuidEq,
+  postgrestFilter,
+  TABLE_NAME,
 } = require("../lib/command-channel-supabase");
 const {
   validateCreateJobInput,
@@ -19,9 +23,47 @@ const {
 
 const shouldRunLive = process.argv.includes("--live");
 const FIXTURE_REPO_REF = "timos-agent-snapshot";
+const SAMPLE_JOB_ID = "c28c939e-837e-43f8-8f67-287b37f6d388";
+
+const MOCK_CONFIG = {
+  url: "https://example.supabase.co",
+  serviceRoleKey: "test-service-role-key",
+  restBase: "https://example.supabase.co/rest/v1/command_channel_jobs",
+};
 
 function assertCase(name, condition, details = "") {
   return { name, passed: Boolean(condition), details };
+}
+
+function formatAdapterError(err) {
+  const parts = [];
+
+  if (err?.message) {
+    parts.push(err.message);
+  }
+  if (err?.name && err.name !== "Error") {
+    parts.push(`name=${err.name}`);
+  }
+  if (err?.code) {
+    parts.push(`code=${err.code}`);
+  }
+  if (err?.status) {
+    parts.push(`status=${err.status}`);
+  }
+  if (err?.cause?.code) {
+    parts.push(`cause_code=${err.cause.code}`);
+  }
+  if (err?.cause?.message) {
+    parts.push(`cause_message=${err.cause.message}`);
+  }
+  if (err?.data) {
+    parts.push(`body=${JSON.stringify(err.data)}`);
+  }
+  if (err?.request?.method) {
+    parts.push(`request=${err.request.method} ${TABLE_NAME}${err.request.query || ""}`);
+  }
+
+  return parts.join("; ");
 }
 
 function createMockFetch(handlers) {
@@ -33,7 +75,7 @@ function createMockFetch(handlers) {
       calls.push({ url, method: options.method || "GET", body: options.body });
 
       for (const handler of handlers) {
-        const result = handler(url, options);
+        const result = await handler(url, options);
         if (result) {
           return result;
         }
@@ -56,21 +98,15 @@ function mockJsonResponse(status, data) {
   };
 }
 
-function headersContainServiceRole(headers) {
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || "test-service-role-key";
-  return (
-    headers.apikey === key &&
-    headers.Authorization === `Bearer ${key}`
-  );
+function headersContainServiceRole(headers, key) {
+  return headers.apikey === key && headers.Authorization === `Bearer ${key}`;
 }
 
-async function runContractTests() {
+async function runMissingEnvChecks() {
   const results = [];
-  const savedBackend = process.env.COMMAND_CHANNEL_BACKEND;
   const savedUrl = process.env.SUPABASE_URL;
   const savedKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  process.env.COMMAND_CHANNEL_BACKEND = "supabase";
   delete process.env.SUPABASE_URL;
   delete process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -96,13 +132,30 @@ async function runContractTests() {
     )
   );
 
-  process.env.SUPABASE_URL = "https://example.supabase.co";
-  process.env.SUPABASE_SERVICE_ROLE_KEY = "test-service-role-key";
+  if (savedUrl === undefined) {
+    delete process.env.SUPABASE_URL;
+  } else {
+    process.env.SUPABASE_URL = savedUrl;
+  }
+  if (savedKey === undefined) {
+    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+  } else {
+    process.env.SUPABASE_SERVICE_ROLE_KEY = savedKey;
+  }
+
+  return results;
+}
+
+async function runMockAdapterChecks() {
+  const results = [];
+  const config = MOCK_CONFIG;
 
   results.push(
     assertCase(
       "supabase env present is detected",
-      isSupabaseConfigured() === true,
+      isSupabaseConfigured() === Boolean(
+        process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
+      ),
       ""
     )
   );
@@ -135,19 +188,40 @@ async function runContractTests() {
     )
   );
 
-  const headers = buildHeaders(getSupabaseConfig());
+  const headers = buildHeaders(config);
   results.push(
     assertCase(
       "buildHeaders uses service role without printing key",
-      headersContainServiceRole(headers),
+      headersContainServiceRole(headers, config.serviceRoleKey),
       headers.Authorization ? "Authorization header set" : "missing auth"
     )
   );
   results.push(
     assertCase(
       "contract test output does not echo service role key",
-      !JSON.stringify(results).includes("test-service-role-key"),
+      !JSON.stringify(results).includes(config.serviceRoleKey),
       "key not echoed in prior results"
+    )
+  );
+
+  const idFilter = postgrestFilter("id", postgrestUuidEq(SAMPLE_JOB_ID));
+  results.push(
+    assertCase(
+      "getJob id filter uses unquoted uuid",
+      idFilter === `id=eq.${SAMPLE_JOB_ID}` && !idFilter.includes('"'),
+      idFilter
+    )
+  );
+
+  const profileFilter = postgrestFilter(
+    "target_worker_profile",
+    postgrestEqValue("cloud-readonly")
+  );
+  results.push(
+    assertCase(
+      "target_worker_profile filter uses encoded text eq",
+      profileFilter === "target_worker_profile=eq.cloud-readonly",
+      profileFilter
     )
   );
 
@@ -165,11 +239,10 @@ async function runContractTests() {
     )
   );
 
-  const config = getSupabaseConfig();
   const store = new Map();
 
   const { fetchImpl, calls } = createMockFetch([
-    (url, options) => {
+    async (url, options) => {
       if (url.endsWith("/command_channel_jobs") && options.method === "POST") {
         const body = JSON.parse(options.body);
         store.set(body.id, body);
@@ -177,7 +250,7 @@ async function runContractTests() {
       }
       return null;
     },
-    (url, options) => {
+    async (url, options) => {
       if (url.includes("id=eq.") && options.method === "GET") {
         const id = decodeURIComponent(url.split("id=eq.")[1].split("&")[0]);
         const row = store.get(id);
@@ -185,7 +258,7 @@ async function runContractTests() {
       }
       return null;
     },
-    (url, options) => {
+    async (url, options) => {
       if (
         url.includes("status=eq.pending") &&
         url.includes("order=created_at.asc") &&
@@ -197,7 +270,7 @@ async function runContractTests() {
       }
       return null;
     },
-    (url, options) => {
+    async (url, options) => {
       if (url.includes("id=eq.") && options.method === "PATCH") {
         const id = decodeURIComponent(url.split("id=eq.")[1].split("&")[0]);
         const existing = store.get(id);
@@ -211,7 +284,7 @@ async function runContractTests() {
       }
       return null;
     },
-    (url, options) => {
+    async (url, options) => {
       if (url.includes("order=created_at.desc") && options.method === "GET") {
         const rows = [...store.values()].sort(
           (a, b) => new Date(b.created_at) - new Date(a.created_at)
@@ -324,45 +397,132 @@ async function runContractTests() {
     )
   );
 
+  return results;
+}
+
+async function runLiveChecks(liveEnv) {
+  const results = [];
+
+  process.env.SUPABASE_URL = liveEnv.url;
+  process.env.SUPABASE_SERVICE_ROLE_KEY = liveEnv.serviceRoleKey;
+
+  console.log("Live mode: using configured Supabase credentials from environment.");
+
+  if (!isSupabaseConfigured()) {
+    results.push(assertCase("live supabase configured", false, "missing env"));
+    return results;
+  }
+
+  let liveJobId = null;
+
+  try {
+    const liveJob = await createJob({
+      repo_ref: FIXTURE_REPO_REF,
+      task_type: "inspect_only",
+      risk_level: "low",
+      requested_by: "contract-test",
+      prompt: "Inspect snapshot for live contract test.",
+    });
+    liveJobId = liveJob.id;
+
+    results.push(
+      assertCase(
+        "live create inspect_only job",
+        liveJob.status === "pending" && liveJob.id,
+        liveJob.id
+      )
+    );
+
+    const liveRead = await getJob(liveJob.id);
+    results.push(
+      assertCase(
+        "live getJob roundtrip",
+        liveRead?.id === liveJob.id,
+        liveRead?.status || "none"
+      )
+    );
+
+    const liveList = await listJobs({ status: "pending" });
+    results.push(
+      assertCase(
+        "live listJobs includes created job",
+        liveList.some((item) => item.id === liveJob.id),
+        `count=${liveList.length}`
+      )
+    );
+
+    const liveClaimed = await claimJob("cloud-readonly", { jobId: liveJob.id });
+    results.push(
+      assertCase(
+        "live claim exact job id",
+        liveClaimed?.id === liveJob.id && liveClaimed?.status === "claimed",
+        liveClaimed?.status || "none"
+      )
+    );
+
+    const liveFinished = await submitResult(liveJob.id, {
+      status: "completed",
+      worker_profile: "cloud-readonly",
+      repo_ref: FIXTURE_REPO_REF,
+      task_type: "inspect_only",
+      summary: "live contract test completed",
+      errors: [],
+    });
+    results.push(
+      assertCase(
+        "live submit completed result",
+        liveFinished?.status === "completed",
+        liveFinished?.status || "none"
+      )
+    );
+
+    const liveFinal = await getJob(liveJob.id);
+    results.push(
+      assertCase(
+        "live final read shows completed",
+        liveFinal?.status === "completed" &&
+          liveFinal?.result?.summary === "live contract test completed",
+        liveFinal?.status || "none"
+      )
+    );
+  } catch (err) {
+    results.push(
+      assertCase("live supabase roundtrip", false, formatAdapterError(err))
+    );
+  }
+
+  if (liveJobId) {
+    console.log(`Live test job id (left as audit record): ${liveJobId}`);
+  }
+
+  return results;
+}
+
+async function runContractTests() {
+  const liveEnv = {
+    url: process.env.SUPABASE_URL,
+    serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+  };
+
+  const results = [];
+
+  results.push(...(await runMissingEnvChecks()));
+  results.push(...(await runMockAdapterChecks()));
+
   if (shouldRunLive) {
-    console.log("Live mode: requires real SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY");
-    if (!isSupabaseConfigured()) {
-      results.push(assertCase("live supabase configured", false, "missing env"));
+    if (!liveEnv.url || !liveEnv.serviceRoleKey) {
+      results.push(
+        assertCase(
+          "live supabase configured",
+          false,
+          "SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set before running --live"
+        )
+      );
     } else {
-      try {
-        const liveJob = await createJob({
-          repo_ref: FIXTURE_REPO_REF,
-          task_type: "summarize_repo",
-          risk_level: "low",
-          requested_by: "contract-test",
-          prompt: "Summarize snapshot.",
-        });
-        const liveRead = await getJob(liveJob.id);
-        results.push(
-          assertCase(
-            "live create/read roundtrip",
-            liveRead?.id === liveJob.id,
-            liveRead?.id || "none"
-          )
-        );
-      } catch (err) {
-        results.push(assertCase("live create/read roundtrip", false, err.message));
-      }
+      results.push(...(await runLiveChecks(liveEnv)));
     }
   } else {
     console.log("Dry contract mode (pass --live for real Supabase roundtrip).");
-  }
-
-  process.env.COMMAND_CHANNEL_BACKEND = savedBackend;
-  if (savedUrl === undefined) {
-    delete process.env.SUPABASE_URL;
-  } else {
-    process.env.SUPABASE_URL = savedUrl;
-  }
-  if (savedKey === undefined) {
-    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
-  } else {
-    process.env.SUPABASE_SERVICE_ROLE_KEY = savedKey;
   }
 
   return results;
@@ -396,6 +556,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error(err.message);
+  console.error(formatAdapterError(err));
   process.exit(1);
 });
