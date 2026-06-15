@@ -14,3 +14,13 @@ config/auth.json
 config/auto-run-policy.json
 config/worker-profiles.json
 config/repo-sources.json
+config/command-channel.json
+.env
+data/command-channel/inbox/*.json
+!data/command-channel/inbox/.gitkeep
+data/command-channel/claimed/*.json
+!data/command-channel/claimed/.gitkeep
+data/command-channel/completed/*.json
+!data/command-channel/completed/.gitkeep
+data/command-channel/failed/*.json
+!data/command-channel/failed/.gitkeep

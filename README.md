@@ -475,6 +475,76 @@ No network, no Cursor, no local API.
 - **Repo sync pipeline** (live GitHub → cloud snapshot)
 - **GPT Action** wiring to coordinator URL
 
+## Emergency no-paste XiaoJu command channel
+
+Tim talks only to XiaoJu. XiaoJu creates read-only remote jobs via authenticated API. Workers poll outbound, execute from repo snapshots, and store results. Tim does not paste prompts to Cursor/workers.
+
+### What it does
+
+| Role | Endpoints | Token |
+|------|-----------|-------|
+| XiaoJu | `POST /remote-jobs`, `GET /remote-jobs`, `GET /remote-jobs/{id}` | `XIAOJU_ACTION_TOKEN` |
+| Worker | `GET /worker/jobs/next`, `POST /worker/jobs/{id}/result` | `WORKER_TOKEN` |
+
+- Read-only tasks only: `inspect_only`, `summarize_repo`
+- `cloud-readonly` worker — no Station1, no Cursor, no local API
+- Fail-closed auth — no approve/run/operator endpoints exposed
+
+Documentation: `docs/bridge/xiaoju-command-channel.md`
+
+GPT Action schema: `docs/openapi/xiaoju-command-channel.openapi.yaml`  
+Worker schema (internal): `docs/openapi/worker-command-channel.openapi.yaml`
+
+### Local smoke test (no network)
+
+```bash
+node scripts/command-channel-smoke-test.js
+# or
+npm run smoke:command-channel
+```
+
+### Run local command channel server
+
+Set auth first (env vars or `config/auth.json`):
+
+```bash
+set XIAOJU_ACTION_TOKEN=your-xiaoju-secret
+set WORKER_TOKEN=your-worker-secret
+node scripts/server-command-channel.js
+```
+
+Default: `http://127.0.0.1:8790`
+
+Process one job (local coordinator filesystem, no HTTP):
+
+```bash
+node scripts/command-channel-worker.js --once --job-id <uuid>
+```
+
+HTTP worker polling:
+
+```bash
+node scripts/command-channel-worker.js --once --http
+```
+
+### Prepare GPT Action import
+
+1. Deploy coordinator API to HTTPS (after local smoke test passes)
+2. Replace `https://YOUR-COORDINATOR-URL` in `docs/openapi/xiaoju-command-channel.openapi.yaml`
+3. Import schema into XiaoJu GPT Action
+4. Set bearer auth to `XIAOJU_ACTION_TOKEN`
+5. **Never** import worker or operator schemas into GPT Action
+
+### Remaining steps for phone usability today
+
+1. Deploy coordinator API to a public HTTPS host
+2. Set `XIAOJU_ACTION_TOKEN` and `WORKER_TOKEN` on the host
+3. Import `xiaoju-command-channel.openapi.yaml` into XiaoJu GPT Action
+4. Run worker polling process (`command-channel-worker.js --http`) against deployed URL
+5. Test create → poll result from XiaoJu on phone
+
+Do not deploy until `npm run smoke:command-channel` passes locally.
+
 ## Job shape
 
 | Field | Description |

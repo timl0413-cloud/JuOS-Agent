@@ -1,7 +1,7 @@
 {
   "name": "timos-agent",
-  "version": "0.8.1",
-  "description": "Local coding worker router and XiaoJu bridge — cloud-readonly worker runtime POC",
+  "version": "0.9.0",
+  "description": "Local coding worker router and XiaoJu bridge — no-paste command channel MVP",
   "private": true,
   "type": "commonjs",
   "scripts": {
@@ -15,7 +15,10 @@
     "station-poll-worker": "node scripts/station-poll-worker.js",
     "coordinator-stub-smoke-test": "node scripts/coordinator-stub-smoke-test.js",
     "worker-routing-smoke-test": "node scripts/worker-routing-smoke-test.js",
-    "smoke:cloud-readonly": "node scripts/cloud-readonly-worker-smoke-test.js"
+    "smoke:cloud-readonly": "node scripts/cloud-readonly-worker-smoke-test.js",
+    "smoke:command-channel": "node scripts/command-channel-smoke-test.js",
+    "server:command-channel": "node scripts/server-command-channel.js",
+    "worker:command-channel-once": "node scripts/command-channel-worker.js --once"
   },
   "engines": {
     "node": ">=18.0.0"

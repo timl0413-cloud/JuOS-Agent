@@ -14,6 +14,16 @@
       "name": "station1-worker",
       "token": "replace-with-station1-worker-secret",
       "scope": ["station-jobs:claim", "station-jobs:result"]
+    },
+    {
+      "name": "xiaoju-command-channel",
+      "token": "replace-with-xiaoju-command-channel-secret",
+      "scope": ["remote-jobs:create", "remote-jobs:read", "remote-jobs:list"]
+    },
+    {
+      "name": "cloud-readonly-worker",
+      "token": "replace-with-cloud-readonly-worker-secret",
+      "scope": ["remote-jobs:claim", "remote-jobs:result"]
     }
   ]
 }

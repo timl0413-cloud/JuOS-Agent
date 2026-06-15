@@ -1,0 +1,283 @@
+openapi: 3.1.0
+info:
+  title: TimOS-Agent XiaoJu Command Channel (Action-Safe)
+  description: |
+    No-paste command channel for XiaoJu GPT Action.
+
+    XiaoJu creates read-only remote jobs and polls results.
+    Does NOT include worker claim/result, approve, run, or operator endpoints.
+
+    Use XIAOJU_ACTION_TOKEN bearer auth only.
+  version: 0.9.0
+
+servers:
+  - url: https://YOUR-COORDINATOR-URL
+    description: Deployed command channel coordinator (replace before use)
+
+security:
+  - BearerAuth: []
+
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      summary: Service health check
+      security: []
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+
+  /remote-jobs:
+    post:
+      operationId: createRemoteJob
+      summary: Create a read-only remote job
+      description: |
+        Creates a remote job for cloud-readonly worker execution.
+        Only inspect_only and summarize_repo with risk_level low are accepted.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRemoteJobRequest"
+      responses:
+        "201":
+          description: Job created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RemoteJob"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/InsufficientScope"
+        "503":
+          $ref: "#/components/responses/AuthNotConfigured"
+    get:
+      operationId: listRemoteJobs
+      summary: List remote jobs
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, claimed, completed, failed]
+        - name: requested_by
+          in: query
+          schema:
+            type: string
+        - name: target_worker_profile
+          in: query
+          schema:
+            type: string
+            example: cloud-readonly
+      responses:
+        "200":
+          description: Job list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [jobs]
+                properties:
+                  jobs:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/RemoteJob"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/InsufficientScope"
+        "503":
+          $ref: "#/components/responses/AuthNotConfigured"
+
+  /remote-jobs/{job_id}:
+    get:
+      operationId: getRemoteJob
+      summary: Get one remote job by id
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Job found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RemoteJob"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/InsufficientScope"
+        "404":
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          $ref: "#/components/responses/AuthNotConfigured"
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: XIAOJU_ACTION_TOKEN (remote-jobs:create, remote-jobs:read, remote-jobs:list)
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid bearer token
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    InsufficientScope:
+      description: Token lacks required scope
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/InsufficientScopeError"
+    AuthNotConfigured:
+      description: Auth tokens not configured
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+  schemas:
+    HealthResponse:
+      type: object
+      required: [ok, service, version]
+      properties:
+        ok:
+          type: boolean
+        service:
+          type: string
+        version:
+          type: string
+
+    CreateRemoteJobRequest:
+      type: object
+      required: [repo_ref, task_type, risk_level]
+      properties:
+        repo_ref:
+          type: string
+          example: timos-agent-snapshot
+        workspace_ref:
+          type: string
+          nullable: true
+          example: TimOS-Agent
+        task_type:
+          type: string
+          enum: [inspect_only, summarize_repo]
+        risk_level:
+          type: string
+          enum: [low]
+        requested_by:
+          type: string
+          example: xiaoju
+        prompt:
+          type: string
+          example: Inspect this repository and summarize structure. Do not modify files.
+        target_worker_profile:
+          type: string
+          description: Must be cloud-readonly if set
+          example: cloud-readonly
+
+    RemoteJob:
+      type: object
+      required:
+        - id
+        - requested_by
+        - target_worker_profile
+        - repo_ref
+        - task_type
+        - risk_level
+        - auto_run_requested
+        - status
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        requested_by:
+          type: string
+        target_worker_profile:
+          type: string
+          example: cloud-readonly
+        repo_ref:
+          type: string
+        workspace_ref:
+          type: string
+          nullable: true
+        task_type:
+          type: string
+          enum: [inspect_only, summarize_repo]
+        risk_level:
+          type: string
+          enum: [low]
+        auto_run_requested:
+          type: boolean
+        prompt:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [pending, claimed, completed, failed]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        claimed_at:
+          type: string
+          format: date-time
+          nullable: true
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+        result:
+          nullable: true
+        errors:
+          type: array
+          items:
+            type: string
+
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+        validation_errors:
+          type: array
+          items:
+            type: string
+
+    InsufficientScopeError:
+      type: object
+      required: [error, required_scope]
+      properties:
+        error:
+          type: string
+          enum: [insufficient_scope]
+        required_scope:
+          type: string

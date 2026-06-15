@@ -1,0 +1,187 @@
+openapi: 3.1.0
+info:
+  title: TimOS-Agent Command Channel Worker API (Internal)
+  description: |
+    Worker-only endpoints for outbound polling.
+
+    Do NOT import into XiaoJu GPT Action.
+    Use WORKER_TOKEN bearer auth only.
+  version: 0.9.0
+
+servers:
+  - url: https://YOUR-COORDINATOR-URL
+    description: Deployed command channel coordinator
+
+security:
+  - BearerAuth: []
+
+paths:
+  /worker/jobs/next:
+    get:
+      operationId: claimNextWorkerJob
+      summary: Claim next pending job for worker profile
+      parameters:
+        - name: worker_profile
+          in: query
+          required: true
+          schema:
+            type: string
+            example: cloud-readonly
+        - name: job_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: Optional specific pending job id to claim
+      responses:
+        "200":
+          description: Job claimed
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [job]
+                properties:
+                  job:
+                    $ref: "#/components/schemas/RemoteJob"
+        "204":
+          description: No pending jobs
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/InsufficientScope"
+        "404":
+          description: Job not found
+        "409":
+          description: Job not claimable
+        "503":
+          $ref: "#/components/responses/AuthNotConfigured"
+
+  /worker/jobs/{job_id}/result:
+    post:
+      operationId: submitWorkerJobResult
+      summary: Submit worker execution result
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorkerJobResult"
+      responses:
+        "200":
+          description: Result stored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RemoteJob"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/InsufficientScope"
+        "404":
+          description: Job not found
+        "409":
+          description: Job not in claimed state
+        "503":
+          $ref: "#/components/responses/AuthNotConfigured"
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: WORKER_TOKEN (remote-jobs:claim, remote-jobs:result)
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid bearer token
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    InsufficientScope:
+      description: Token lacks required scope
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/InsufficientScopeError"
+    AuthNotConfigured:
+      description: Auth tokens not configured
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+  schemas:
+    RemoteJob:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        requested_by:
+          type: string
+        target_worker_profile:
+          type: string
+        repo_ref:
+          type: string
+        task_type:
+          type: string
+        risk_level:
+          type: string
+        status:
+          type: string
+        result:
+          nullable: true
+
+    WorkerJobResult:
+      type: object
+      required: [status, worker_profile, repo_ref, task_type]
+      properties:
+        status:
+          type: string
+          enum: [completed, failed]
+        worker_profile:
+          type: string
+        repo_ref:
+          type: string
+        task_type:
+          type: string
+        files_seen:
+          type: array
+          items:
+            type: object
+        summary:
+          type: string
+          nullable: true
+        safety:
+          type: object
+        errors:
+          type: array
+          items:
+            type: string
+
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+
+    InsufficientScopeError:
+      type: object
+      required: [error, required_scope]
+      properties:
+        error:
+          type: string
+          enum: [insufficient_scope]
+        required_scope:
+          type: string
