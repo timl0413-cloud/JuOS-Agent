@@ -24,3 +24,6 @@ data/command-channel/completed/*.json
 !data/command-channel/completed/.gitkeep
 data/command-channel/failed/*.json
 !data/command-channel/failed/.gitkeep
+
+# XiaoJu local handoffs
+.xiaoju/

@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+const fs = require("fs");
+const path = require("path");
 const {
   claimJob,
   submitResult,
@@ -9,6 +11,7 @@ const { executeCloudReadonlyJob } = require("../lib/cloud-readonly-worker");
 
 const runOnce = process.argv.includes("--once");
 const allowLaneClaim = process.argv.includes("--allow-lane");
+const cursorHandoff = process.argv.includes("--cursor-handoff");
 
 function parseNamedArg(flagName) {
   const eqArg = process.argv.find((arg) => arg.startsWith(`${flagName}=`));
@@ -116,6 +119,54 @@ function toWorkerJobPayload(claimedJob) {
   };
 }
 
+
+function safeHandoffFileName(value) {
+  return String(value || "job").replace(/[^a-zA-Z0-9._-]/g, "-");
+}
+
+function getCursorHandoffDir() {
+  return path.join(process.cwd(), ".xiaoju", "cursor-handoffs");
+}
+
+function buildCursorHandoffContent(claimedJob) {
+  const prompt = claimedJob.prompt || claimedJob.payload?.prompt || "";
+
+  return [
+    "# Cursor Handoff",
+    "",
+    `Job ID: ${claimedJob.id}`,
+    `Target worker: ${claimedJob.target_worker_profile || ""}`,
+    `Repo ref: ${claimedJob.repo_ref || ""}`,
+    `Task type: ${claimedJob.task_type || ""}`,
+    `Risk level: ${claimedJob.risk_level || ""}`,
+    "",
+    "## Cursor task",
+    prompt || "**NO PROMPT FOUND ON JOB. Ask Tim/XiaoJu for task context before editing.**",
+    "",
+    "## Rules",
+    "- Keep changes minimal.",
+    "- Do not touch unrelated files.",
+    "- Do not run destructive commands.",
+    "- After work, paste summary and git diff/stat back to XiaoJu.",
+    "",
+    "## Raw job",
+    "```json",
+    JSON.stringify(claimedJob, null, 2),
+    "```",
+    "",
+  ].join("\n");
+}
+
+function writeCursorHandoff(claimedJob) {
+  const dir = getCursorHandoffDir();
+  fs.mkdirSync(dir, { recursive: true });
+
+  const filePath = path.join(dir, `${safeHandoffFileName(claimedJob.id)}.md`);
+  fs.writeFileSync(filePath, buildCursorHandoffContent(claimedJob), "utf8");
+
+  return { filePath };
+}
+
 async function processClaimedJob(claimedJob) {
   console.log(`Processing remote job: ${claimedJob.id} task_type=${claimedJob.task_type}`);
 
@@ -192,6 +243,13 @@ async function processOneJob(options = {}) {
       return null;
     }
 
+    if (cursorHandoff || options.cursorHandoff) {
+      const handoff = writeCursorHandoff(claimed);
+      console.log(`Cursor handoff created: ${handoff.filePath}`);
+      console.log("Result not submitted. Complete the Cursor work, then report back to XiaoJu.");
+      return { claimedJob: claimed, handoff };
+    }
+
     const workerResult = executeCloudReadonlyJob(toWorkerJobPayload(claimed), {
       station_online: false,
     });
@@ -239,4 +297,3 @@ module.exports = {
   processClaimedJob,
   toWorkerJobPayload,
 };
-
