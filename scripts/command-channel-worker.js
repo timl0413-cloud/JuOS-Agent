@@ -7,8 +7,26 @@ const {
 } = require("../lib/command-channel-coordinator");
 const { executeCloudReadonlyJob } = require("../lib/cloud-readonly-worker");
 
-const WORKER_PROFILE = DEFAULT_WORKER_PROFILE;
 const runOnce = process.argv.includes("--once");
+const allowLaneClaim = process.argv.includes("--allow-lane");
+
+function parseNamedArg(flagName) {
+  const eqArg = process.argv.find((arg) => arg.startsWith(`${flagName}=`));
+  if (eqArg) {
+    return eqArg.slice(flagName.length + 1);
+  }
+
+  const flagIndex = process.argv.indexOf(flagName);
+  if (flagIndex !== -1 && process.argv[flagIndex + 1]) {
+    return process.argv[flagIndex + 1];
+  }
+
+  return null;
+}
+
+function parseWorkerProfileArg() {
+  return parseNamedArg("--worker-profile");
+}
 
 function parseJobIdArg() {
   const eqArg = process.argv.find((arg) => arg.startsWith("--job-id="));
@@ -25,6 +43,10 @@ function parseJobIdArg() {
 }
 
 const JOB_ID = parseJobIdArg();
+const WORKER_PROFILE =
+  parseWorkerProfileArg() ||
+  process.env.COMMAND_CHANNEL_WORKER_PROFILE ||
+  DEFAULT_WORKER_PROFILE;
 const useHttp = process.argv.includes("--http");
 const baseUrl =
   process.env.COMMAND_CHANNEL_URL ||
@@ -33,6 +55,10 @@ const baseUrl =
 function getWorkerToken() {
   if (process.env.WORKER_TOKEN) {
     return process.env.WORKER_TOKEN;
+  }
+
+  if (process.env.COMMAND_CHANNEL_WORKER_TOKEN) {
+    return process.env.COMMAND_CHANNEL_WORKER_TOKEN;
   }
 
   const { loadAuthTokens, findTokenByName } = require("../lib/auth");
@@ -152,6 +178,12 @@ async function processOneJob(options = {}) {
   const jobId = options.jobId ?? JOB_ID;
   const mode = options.mode || (useHttp ? "http" : "local");
 
+  if (!jobId && !allowLaneClaim && !options.allowLaneClaim) {
+    throw new Error(
+      "Refusing to claim by lane without --job-id or --allow-lane. Use explicit assignment first."
+    );
+  }
+
   if (mode === "http") {
     const token = options.token || getWorkerToken();
     const claimed = await claimHttpJob(token, jobId);
@@ -207,3 +239,4 @@ module.exports = {
   processClaimedJob,
   toWorkerJobPayload,
 };
+
