@@ -2,6 +2,7 @@
 
 const fs = require("fs");
 const path = require("path");
+const { spawnSync } = require("child_process");
 const {
   claimJob,
   submitResult,
@@ -13,6 +14,7 @@ const runOnce = process.argv.includes("--once");
 const allowLaneClaim = process.argv.includes("--allow-lane");
 const cursorHandoff = process.argv.includes("--cursor-handoff");
 const submitHandoffResult = process.argv.includes("--submit-handoff-result");
+const cursorAgent = process.argv.includes("--cursor-agent");
 const RESULT_FILE = parseNamedArg("--result-file");
 
 function parseNamedArg(flagName) {
@@ -239,6 +241,113 @@ async function submitCursorHandoffResult(options = {}) {
   return { finished, result, filePath };
 }
 
+
+function findCursorAgentRuntime() {
+  const root = path.join(process.env.LOCALAPPDATA || "", "cursor-agent");
+  const versionsDir = path.join(root, "versions");
+
+  if (!fs.existsSync(versionsDir)) {
+    throw new Error(`Cursor agent versions directory not found: ${versionsDir}`);
+  }
+
+  const versions = fs
+    .readdirSync(versionsDir, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => path.join(versionsDir, entry.name))
+    .sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs);
+
+  if (versions.length === 0) {
+    throw new Error(`No Cursor agent runtime versions found in ${versionsDir}`);
+  }
+
+  const runtimeDir = versions[0];
+  const nodePath = path.join(runtimeDir, "node.exe");
+  const indexPath = path.join(runtimeDir, "index.js");
+
+  if (!fs.existsSync(nodePath) || !fs.existsSync(indexPath)) {
+    throw new Error(`Cursor agent runtime missing node.exe or index.js in ${runtimeDir}`);
+  }
+
+  return { runtimeDir, nodePath, indexPath };
+}
+
+function buildCursorAgentPrompt(claimedJob) {
+  const prompt = claimedJob.prompt || claimedJob.payload?.prompt || "";
+
+  return [
+    "You are Cursor Agent working under XiaoJu/NovaReading command-channel.",
+    "",
+    "Safety mode:",
+    "- Do not modify files.",
+    "- Do not run shell commands.",
+    "- Analyze only.",
+    "- Return a concise debug result.",
+    "",
+    "Job:",
+    JSON.stringify(claimedJob, null, 2),
+    "",
+    "Task:",
+    prompt || "No task prompt provided.",
+  ].join("\n");
+}
+
+function runCursorAgentForJob(claimedJob) {
+  const runtime = findCursorAgentRuntime();
+  const prompt = buildCursorAgentPrompt(claimedJob);
+
+  const result = spawnSync(
+    runtime.nodePath,
+    [
+      runtime.indexPath,
+      "--print",
+      "--output-format",
+      "text",
+      "--mode",
+      "ask",
+      "--trust",
+      "--workspace",
+      process.cwd(),
+      prompt,
+    ],
+    {
+      cwd: process.cwd(),
+      encoding: "utf8",
+      timeout: 10 * 60 * 1000,
+      maxBuffer: 1024 * 1024 * 10,
+    }
+  );
+
+  const stdout = (result.stdout || "").trim();
+  const stderr = (result.stderr || "").trim();
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  return {
+    status: result.status === 0 ? "completed" : "failed",
+    worker_profile: WORKER_PROFILE,
+    repo_ref: claimedJob.repo_ref || null,
+    task_type: "cursor_agent",
+    files_seen: [],
+    summary: stdout || stderr || "Cursor Agent returned no output.",
+    errors: result.status === 0 ? [] : [stderr || `Cursor Agent exited with status ${result.status}`],
+    safety: {
+      cursor_called: true,
+      snapshot_only: false,
+      files_modified: false,
+      shell_commands_executed: false,
+      local_api_called: false,
+    },
+    cursor_agent: {
+      runtime_dir: runtime.runtimeDir,
+      mode: "ask",
+      exit_status: result.status,
+      stderr: stderr || null,
+    },
+  };
+}
+
 async function processClaimedJob(claimedJob) {
   console.log(`Processing remote job: ${claimedJob.id} task_type=${claimedJob.task_type}`);
 
@@ -313,6 +422,13 @@ async function processOneJob(options = {}) {
     if (!claimed) {
       console.log(`No pending remote jobs for worker_profile=${WORKER_PROFILE}`);
       return null;
+    }
+
+    if (cursorAgent || options.cursorAgent) {
+      const workerResult = runCursorAgentForJob(claimed);
+      const finished = await submitHttpResult(token, claimed.id, workerResult);
+      console.log(`Cursor Agent result submitted: ${claimed.id} status=${workerResult.status}`);
+      return { claimedJob: claimed, workerResult, finished };
     }
 
     if (cursorHandoff || options.cursorHandoff) {
