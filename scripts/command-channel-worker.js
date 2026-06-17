@@ -12,6 +12,8 @@ const { executeCloudReadonlyJob } = require("../lib/cloud-readonly-worker");
 const runOnce = process.argv.includes("--once");
 const allowLaneClaim = process.argv.includes("--allow-lane");
 const cursorHandoff = process.argv.includes("--cursor-handoff");
+const submitHandoffResult = process.argv.includes("--submit-handoff-result");
+const RESULT_FILE = parseNamedArg("--result-file");
 
 function parseNamedArg(flagName) {
   const eqArg = process.argv.find((arg) => arg.startsWith(`${flagName}=`));
@@ -167,6 +169,76 @@ function writeCursorHandoff(claimedJob) {
   return { filePath };
 }
 
+
+function getCursorResultDir() {
+  return path.join(process.cwd(), ".xiaoju", "cursor-results");
+}
+
+function getCursorResultPath(jobId) {
+  return path.join(getCursorResultDir(), `${safeHandoffFileName(jobId)}.json`);
+}
+
+function readCursorResult(jobId, resultFile) {
+  const filePath = resultFile || getCursorResultPath(jobId);
+
+  if (!fs.existsSync(filePath)) {
+    throw new Error(`Cursor result file not found: ${filePath}`);
+  }
+
+  const rawText = fs.readFileSync(filePath, "utf8").replace(/^\uFEFF/, "");
+  const raw = JSON.parse(rawText);
+  const status = raw.status === "failed" ? "failed" : "completed";
+  const filesChanged = Array.isArray(raw.files_changed) ? raw.files_changed : [];
+
+  return {
+    filePath,
+    result: {
+      status,
+      worker_profile: WORKER_PROFILE,
+      repo_ref: raw.repo_ref || null,
+      task_type: raw.task_type || "cursor_handoff",
+      files_seen: filesChanged.map((filePath) => ({ path: filePath, type: "file" })),
+      summary: raw.summary || "",
+      errors: Array.isArray(raw.errors) ? raw.errors : [],
+      safety: {
+        cursor_called: true,
+        snapshot_only: false,
+        files_modified: raw.files_modified ?? filesChanged.length > 0,
+        shell_commands_executed: raw.shell_commands_executed === true,
+        local_api_called: raw.local_api_called === true,
+      },
+      cursor_handoff: {
+        job_id: jobId,
+        result_file: filePath,
+        diff_stat: raw.diff_stat || null,
+        notes: raw.notes || null,
+      },
+    },
+  };
+}
+
+async function submitCursorHandoffResult(options = {}) {
+  const jobId = options.jobId ?? JOB_ID;
+  if (!jobId) {
+    throw new Error("--job-id is required for --submit-handoff-result");
+  }
+
+  const { filePath, result } = readCursorResult(jobId, options.resultFile ?? RESULT_FILE);
+
+  if (useHttp || options.mode === "http") {
+    const token = options.token || getWorkerToken();
+    const finished = await submitHttpResult(token, jobId, result);
+    console.log(`Submitted Cursor handoff result: ${finished.job?.id || jobId} status=${finished.job?.status || result.status}`);
+    console.log(`Result file: ${filePath}`);
+    return { finished, result, filePath };
+  }
+
+  const finished = submitResult(jobId, result);
+  console.log(`Submitted local Cursor handoff result: ${finished.id} status=${finished.status}`);
+  console.log(`Result file: ${filePath}`);
+  return { finished, result, filePath };
+}
+
 async function processClaimedJob(claimedJob) {
   console.log(`Processing remote job: ${claimedJob.id} task_type=${claimedJob.task_type}`);
 
@@ -273,6 +345,11 @@ async function main() {
 
   if (JOB_ID) {
     console.log(`Target job id: ${JOB_ID}`);
+  }
+
+  if (submitHandoffResult) {
+    await submitCursorHandoffResult({ jobId: JOB_ID, resultFile: RESULT_FILE });
+    return;
   }
 
   if (!runOnce) {
