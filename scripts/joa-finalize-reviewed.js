@@ -16,7 +16,8 @@
  *     --approve
  *
  * Safety:
- * - JOA workspace only (C:\projects\TimOS-Agent)
+ * - Workspace must match target worker profile contract
+ *   (joa => C:\projects\TimOS-Agent, finance => C:\projects\TimFinance)
  * - Pending paths must exactly match allowlist plus ignore list
  * - Refuses when any modified path is outside allowlist/ignore list
  * - Refuses when allowlisted or ignored paths are missing from pending changes
@@ -29,9 +30,28 @@ const path = require("path");
 const {
   JOA_REPO_REF,
   JOA_WORKSPACE_REF,
+  resolveApprovedFinalizeWorkspace,
 } = require("../lib/command-channel-core");
 
-const WORKER_PROFILE = "joa";
+function parseWorkerProfileArg() {
+  return parseNamedArg("--worker-profile") || "joa";
+}
+
+function parseRepoRefArg(workerProfile) {
+  const contractRepoRef = parseNamedArg("--repo-ref");
+  if (contractRepoRef) {
+    return contractRepoRef;
+  }
+  return workerProfile === "joa" ? JOA_REPO_REF : null;
+}
+
+function parseWorkspaceRefArg(workerProfile) {
+  const contractWorkspaceRef = parseNamedArg("--workspace-ref");
+  if (contractWorkspaceRef) {
+    return contractWorkspaceRef;
+  }
+  return resolveApprovedFinalizeWorkspace(workerProfile);
+}
 
 function parseNamedArg(flagName) {
   const eqArg = process.argv.find((arg) => arg.startsWith(`${flagName}=`));
@@ -88,13 +108,21 @@ function normalizeWorkspaceRef(value) {
 }
 
 function formatWorkerContext(extra = {}) {
+  const workerProfile = extra.worker_profile || parseWorkerProfileArg();
+  const repoRef = extra.repo_ref || parseRepoRefArg(workerProfile);
+  const workspaceRef =
+    extra.workspace || parseWorkspaceRefArg(workerProfile) || "(unknown)";
   const parts = [
-    `worker_profile=${WORKER_PROFILE}`,
-    `workspace=${JOA_WORKSPACE_REF}`,
-    `repo_ref=${JOA_REPO_REF}`,
+    `worker_profile=${workerProfile}`,
+    `workspace=${workspaceRef}`,
+    `repo_ref=${repoRef}`,
   ];
   for (const [key, value] of Object.entries(extra)) {
-    if (value != null && value !== "") {
+    if (
+      value != null &&
+      value !== "" &&
+      !["worker_profile", "repo_ref", "workspace"].includes(key)
+    ) {
       parts.push(`${key}=${value}`);
     }
   }
@@ -154,14 +182,14 @@ function readPendingChanges(cwd) {
   };
 }
 
-function validateWorkspace(cwd) {
+function validateWorkspace(cwd, expectedWorkspaceRef) {
   const resolved = path.resolve(cwd);
-  const expected = path.resolve(JOA_WORKSPACE_REF);
+  const expected = path.resolve(expectedWorkspaceRef);
 
   if (normalizeWorkspaceRef(resolved) !== normalizeWorkspaceRef(expected)) {
     fail(
-      `workspace mismatch: expected "${JOA_WORKSPACE_REF}", got "${resolved}"`,
-      { cwd: resolved }
+      `workspace mismatch: expected "${expectedWorkspaceRef}", got "${resolved}"`,
+      { cwd: resolved, workspace: expectedWorkspaceRef }
     );
   }
 }
@@ -275,9 +303,32 @@ function main() {
   const ignorelist = parseIgnoreArgs();
   const message = parseNamedArg("--message");
   const approved = process.argv.includes("--approve");
+  const workerProfile = parseWorkerProfileArg();
+  const repoRef = parseRepoRefArg(workerProfile);
+  const expectedWorkspaceRef = parseWorkspaceRefArg(workerProfile);
   const cwd = process.cwd();
 
-  console.log(formatWorkerContext({ mode: approved ? "finalize" : "preview", approved: approved ? "yes" : "no" }));
+  console.log(
+    formatWorkerContext({
+      worker_profile: workerProfile,
+      repo_ref: repoRef,
+      workspace: expectedWorkspaceRef,
+      mode: approved ? "finalize" : "preview",
+      approved: approved ? "yes" : "no",
+    })
+  );
+
+  if (!expectedWorkspaceRef) {
+    fail(`workspace_ref is required for target_worker_profile "${workerProfile}"`, {
+      worker_profile: workerProfile,
+    });
+  }
+
+  if (!repoRef) {
+    fail(`repo_ref is required for target_worker_profile "${workerProfile}"`, {
+      worker_profile: workerProfile,
+    });
+  }
 
   if (allowlist.length === 0) {
     fail("at least one --allowlist path is required");
@@ -287,7 +338,7 @@ function main() {
     fail("--message is required");
   }
 
-  validateWorkspace(cwd);
+  validateWorkspace(cwd, expectedWorkspaceRef);
 
   const pending = readPendingChanges(cwd);
   const classification = analyzePendingPaths({

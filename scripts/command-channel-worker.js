@@ -10,7 +10,8 @@ const {
 } = require("../lib/command-channel-coordinator");
 const {
   JOA_REPO_REF,
-  JOA_WORKSPACE_REF,
+  resolveApprovedFinalizeWorkspace,
+  validateApprovedFinalizeContract,
 } = require("../lib/command-channel-core");
 const { executeCloudReadonlyJob } = require("../lib/cloud-readonly-worker");
 
@@ -105,8 +106,9 @@ const baseUrl =
   `http://${process.env.COMMAND_CHANNEL_HOST || "127.0.0.1"}:${process.env.COMMAND_CHANNEL_PORT || 8790}`;
 
 function getActiveWorkspaceRef() {
-  if (WORKER_PROFILE === "joa") {
-    return JOA_WORKSPACE_REF;
+  const resolved = resolveApprovedFinalizeWorkspace(WORKER_PROFILE);
+  if (resolved) {
+    return resolved;
   }
   return process.cwd();
 }
@@ -119,6 +121,8 @@ function formatWorkerContext(extra = {}) {
 
   if (WORKER_PROFILE === "joa") {
     parts.push(`repo_ref=${JOA_REPO_REF}`);
+  } else if (WORKER_PROFILE === "finance") {
+    parts.push(`repo_ref=TimFinance`);
   }
 
   parts.push(`mode=${useHttp ? "http" : "local"}`);
@@ -430,18 +434,22 @@ function validateApprovedFinalizeJob(claimedJob) {
     errors.push("message is required for approved_finalize");
   }
 
+  const targetWorkerProfile =
+    claimedJob.target_worker_profile || WORKER_PROFILE;
+  if (targetWorkerProfile !== WORKER_PROFILE) {
+    errors.push(
+      `target_worker_profile must match running worker "${WORKER_PROFILE}", got ${JSON.stringify(targetWorkerProfile)}`
+    );
+  }
+
   const workspaceRef =
     claimedJob.workspace_ref || readJobContractField(claimedJob, "workspace_ref");
-  if (WORKER_PROFILE === "joa" && workspaceRef) {
-    if (
-      normalizeWorkspaceRef(workspaceRef) !==
-      normalizeWorkspaceRef(JOA_WORKSPACE_REF)
-    ) {
-      errors.push(
-        `workspace_ref must be "${JOA_WORKSPACE_REF}" for target_worker_profile "joa"`
-      );
-    }
-  }
+  const contractValidation = validateApprovedFinalizeContract({
+    workerProfile: targetWorkerProfile,
+    repoRef: claimedJob.repo_ref,
+    workspaceRef,
+  });
+  errors.push(...contractValidation.errors);
 
   if (errors.length > 0) {
     return { ok: false, errors };
@@ -453,7 +461,9 @@ function validateApprovedFinalizeJob(claimedJob) {
     ignorePaths: readStringArrayField(claimedJob, "ignore_paths"),
     message: String(message).trim(),
     targetBranch: readJobContractField(claimedJob, "target_branch"),
-    workspaceRef: workspaceRef || null,
+    workspaceRef: contractValidation.workspaceRef,
+    targetWorkerProfile,
+    repoRef: contractValidation.repoRef,
   };
 }
 
@@ -510,9 +520,16 @@ function runApprovedFinalizeForJob(claimedJob) {
     helperArgs.push("--ignore", filePath);
   }
   helperArgs.push("--message", validation.message, "--approve");
+  helperArgs.push(
+    "--worker-profile",
+    validation.targetWorkerProfile,
+    "--repo-ref",
+    validation.repoRef,
+    "--workspace-ref",
+    validation.workspaceRef
+  );
 
-  const workspaceCwd =
-    WORKER_PROFILE === "joa" ? JOA_WORKSPACE_REF : process.cwd();
+  const workspaceCwd = validation.workspaceRef;
 
   console.log(
     `Invoking finalize helper ${formatWorkerContext({

@@ -20,6 +20,7 @@ const {
   validateCreateJobInput,
   buildNewJobRecord,
   ALLOWED_WORKER_PROFILES,
+  validateApprovedFinalizeContract,
 } = require("../lib/command-channel-core");
 
 const shouldRunLive = process.argv.includes("--live");
@@ -306,6 +307,158 @@ async function runMockAdapterChecks() {
       ALLOWED_WORKER_PROFILES.join(", ")
     )
   );
+
+  const joaFinalizeValid = validateApprovedFinalizeContract({
+    workerProfile: "joa",
+    repoRef: "TimOS-Agent",
+    workspaceRef: "C:\\projects\\TimOS-Agent",
+  });
+  results.push(
+    assertCase(
+      "approved_finalize joa contract validates",
+      joaFinalizeValid.ok === true,
+      joaFinalizeValid.errors.join("; ")
+    )
+  );
+
+  const financeFinalizeValid = validateApprovedFinalizeContract({
+    workerProfile: "finance",
+    repoRef: "TimFinance",
+    workspaceRef: "C:\\projects\\TimFinance",
+  });
+  results.push(
+    assertCase(
+      "approved_finalize finance contract validates",
+      financeFinalizeValid.ok === true,
+      financeFinalizeValid.errors.join("; ")
+    )
+  );
+
+  const joaWrongWorkspace = validateApprovedFinalizeContract({
+    workerProfile: "joa",
+    repoRef: "TimOS-Agent",
+    workspaceRef: "C:\\projects\\TimFinance",
+  });
+  results.push(
+    assertCase(
+      "approved_finalize joa rejects finance workspace",
+      joaWrongWorkspace.ok === false &&
+        joaWrongWorkspace.errors.some((item) => item.includes("workspace_ref")),
+      joaWrongWorkspace.errors.join("; ")
+    )
+  );
+
+  const financeWrongWorkspace = validateApprovedFinalizeContract({
+    workerProfile: "finance",
+    repoRef: "TimFinance",
+    workspaceRef: "C:\\projects\\TimOS-Agent",
+  });
+  results.push(
+    assertCase(
+      "approved_finalize finance rejects joa workspace",
+      financeWrongWorkspace.ok === false &&
+        financeWrongWorkspace.errors.some((item) => item.includes("workspace_ref")),
+      financeWrongWorkspace.errors.join("; ")
+    )
+  );
+
+  const financeWrongRepo = validateApprovedFinalizeContract({
+    workerProfile: "finance",
+    repoRef: "TimOS-Agent",
+    workspaceRef: "C:\\projects\\TimFinance",
+  });
+  results.push(
+    assertCase(
+      "approved_finalize finance rejects wrong repo_ref",
+      financeWrongRepo.ok === false &&
+        financeWrongRepo.errors.some((item) => item.includes("repo_ref")),
+      financeWrongRepo.errors.join("; ")
+    )
+  );
+
+  const unsupportedProfile = validateApprovedFinalizeContract({
+    workerProfile: "cloud-readonly",
+    repoRef: "timos-agent-snapshot",
+    workspaceRef: "C:\\projects\\TimOS-Agent",
+  });
+  results.push(
+    assertCase(
+      "approved_finalize rejects unsupported worker profile",
+      unsupportedProfile.ok === false &&
+        unsupportedProfile.errors.some((item) =>
+          item.includes("does not support approved_finalize")
+        ),
+      unsupportedProfile.errors.join("; ")
+    )
+  );
+
+  const workerModulePath = require.resolve("./command-channel-worker");
+  const savedWorkerProfile = process.env.COMMAND_CHANNEL_WORKER_PROFILE;
+  delete require.cache[workerModulePath];
+  process.env.COMMAND_CHANNEL_WORKER_PROFILE = "finance";
+  const financeWorker = require("./command-channel-worker");
+  const financeFinalizeJob = {
+    id: "finance-finalize-test",
+    target_worker_profile: "finance",
+    repo_ref: "TimFinance",
+    workspace_ref: "C:\\projects\\TimFinance",
+    task_type: "approved_finalize",
+    approval_status: "approved",
+    allowlist_paths: ["docs/project-status.md"],
+    message: "Finalize reviewed finance change",
+  };
+  const financeWorkerValidation =
+    financeWorker.validateApprovedFinalizeJob(financeFinalizeJob);
+  results.push(
+    assertCase(
+      "worker approved_finalize validates finance workspace contract",
+      financeWorkerValidation.ok === true,
+      financeWorkerValidation.errors?.join("; ") || "ok"
+    )
+  );
+
+  delete require.cache[workerModulePath];
+  process.env.COMMAND_CHANNEL_WORKER_PROFILE = "joa";
+  const joaWorker = require("./command-channel-worker");
+  const joaFinalizeJob = {
+    id: "joa-finalize-test",
+    target_worker_profile: "joa",
+    repo_ref: "TimOS-Agent",
+    workspace_ref: "C:\\projects\\TimOS-Agent",
+    task_type: "approved_finalize",
+    approval_status: "approved",
+    allowlist_paths: ["lib/command-channel-core.js"],
+    message: "Finalize reviewed joa change",
+  };
+  const joaWorkerValidation =
+    joaWorker.validateApprovedFinalizeJob(joaFinalizeJob);
+  results.push(
+    assertCase(
+      "worker approved_finalize validates joa workspace contract",
+      joaWorkerValidation.ok === true,
+      joaWorkerValidation.errors?.join("; ") || "ok"
+    )
+  );
+
+  const financeWorkerMismatch = financeWorker.validateApprovedFinalizeJob({
+    ...financeFinalizeJob,
+    workspace_ref: "C:\\projects\\TimOS-Agent",
+  });
+  results.push(
+    assertCase(
+      "worker approved_finalize rejects finance job with joa workspace",
+      financeWorkerMismatch.ok === false &&
+        financeWorkerMismatch.errors.some((item) => item.includes("workspace_ref")),
+      financeWorkerMismatch.errors?.join("; ") || "ok"
+    )
+  );
+
+  delete require.cache[workerModulePath];
+  if (savedWorkerProfile === undefined) {
+    delete process.env.COMMAND_CHANNEL_WORKER_PROFILE;
+  } else {
+    process.env.COMMAND_CHANNEL_WORKER_PROFILE = savedWorkerProfile;
+  }
 
   const store = new Map();
 
