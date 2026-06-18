@@ -362,8 +362,244 @@ function findCursorAgentRuntime() {
 }
 
 
+function normalizeWorkspaceRef(value) {
+  return String(value || "")
+    .trim()
+    .replace(/\//g, "\\")
+    .toLowerCase();
+}
+
 function isSupervisedImplementJob(claimedJob) {
   return claimedJob?.task_type === "supervised_implement";
+}
+
+function isApprovedFinalizeJob(claimedJob) {
+  return claimedJob?.task_type === "approved_finalize";
+}
+
+function getJobPayloadObject(claimedJob) {
+  return claimedJob?.payload && typeof claimedJob.payload === "object"
+    ? claimedJob.payload
+    : {};
+}
+
+function readJobContractField(claimedJob, fieldName) {
+  const payload = getJobPayloadObject(claimedJob);
+  if (claimedJob?.[fieldName] != null) {
+    return claimedJob[fieldName];
+  }
+  if (payload[fieldName] != null) {
+    return payload[fieldName];
+  }
+  return null;
+}
+
+function readStringArrayField(claimedJob, fieldName) {
+  const value = readJobContractField(claimedJob, fieldName);
+  if (value == null) {
+    return [];
+  }
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => String(item || "").trim())
+      .filter((item) => item.length > 0);
+  }
+  if (typeof value === "string" && value.trim()) {
+    return [value.trim()];
+  }
+  return [];
+}
+
+function validateApprovedFinalizeJob(claimedJob) {
+  const errors = [];
+  const approvalStatus = readJobContractField(claimedJob, "approval_status");
+
+  if (approvalStatus !== "approved") {
+    errors.push(
+      `approval_status must be "approved", got ${JSON.stringify(approvalStatus)}`
+    );
+  }
+
+  const allowlistPaths = readStringArrayField(claimedJob, "allowlist_paths");
+  if (allowlistPaths.length === 0) {
+    errors.push("allowlist_paths must contain at least one path");
+  }
+
+  const message = readJobContractField(claimedJob, "message");
+  if (!message || !String(message).trim()) {
+    errors.push("message is required for approved_finalize");
+  }
+
+  const workspaceRef =
+    claimedJob.workspace_ref || readJobContractField(claimedJob, "workspace_ref");
+  if (WORKER_PROFILE === "joa" && workspaceRef) {
+    if (
+      normalizeWorkspaceRef(workspaceRef) !==
+      normalizeWorkspaceRef(JOA_WORKSPACE_REF)
+    ) {
+      errors.push(
+        `workspace_ref must be "${JOA_WORKSPACE_REF}" for target_worker_profile "joa"`
+      );
+    }
+  }
+
+  if (errors.length > 0) {
+    return { ok: false, errors };
+  }
+
+  return {
+    ok: true,
+    allowlistPaths,
+    ignorePaths: readStringArrayField(claimedJob, "ignore_paths"),
+    message: String(message).trim(),
+    targetBranch: readJobContractField(claimedJob, "target_branch"),
+    workspaceRef: workspaceRef || null,
+  };
+}
+
+function buildApprovedFinalizeFailureResult(claimedJob, errors, extra = {}) {
+  return {
+    status: "failed",
+    worker_profile: WORKER_PROFILE,
+    repo_ref: claimedJob.repo_ref || null,
+    task_type: claimedJob.task_type || "approved_finalize",
+    files_seen: [],
+    summary: extra.summary || "approved_finalize validation failed",
+    errors,
+    safety: {
+      cursor_called: false,
+      snapshot_only: false,
+      files_modified: false,
+      shell_commands_executed: Boolean(extra.shell_commands_executed),
+      local_api_called: false,
+    },
+    approved_finalize: {
+      helper: "scripts/joa-finalize-reviewed.js",
+      invoked: Boolean(extra.invoked),
+      target_branch: extra.targetBranch || null,
+      workspace_ref: extra.workspaceRef || null,
+      exit_status: extra.exitStatus ?? null,
+      stdout: extra.stdout || null,
+      stderr: extra.stderr || null,
+    },
+  };
+}
+
+function runApprovedFinalizeForJob(claimedJob) {
+  console.log(
+    `Running approved_finalize ${formatWorkerContext({
+      task_type: claimedJob.task_type,
+      job_id: claimedJob.id,
+    })}`
+  );
+
+  const validation = validateApprovedFinalizeJob(claimedJob);
+  if (!validation.ok) {
+    console.error(
+      `approved_finalize validation failed: ${validation.errors.join("; ")}`
+    );
+    return buildApprovedFinalizeFailureResult(claimedJob, validation.errors);
+  }
+
+  const helperPath = path.join(__dirname, "joa-finalize-reviewed.js");
+  const helperArgs = [helperPath];
+  for (const filePath of validation.allowlistPaths) {
+    helperArgs.push("--allowlist", filePath);
+  }
+  for (const filePath of validation.ignorePaths) {
+    helperArgs.push("--ignore", filePath);
+  }
+  helperArgs.push("--message", validation.message, "--approve");
+
+  const workspaceCwd =
+    WORKER_PROFILE === "joa" ? JOA_WORKSPACE_REF : process.cwd();
+
+  console.log(
+    `Invoking finalize helper ${formatWorkerContext({
+      task_type: claimedJob.task_type,
+      workspace: workspaceCwd,
+      allowlist_count: validation.allowlistPaths.length,
+      ignore_count: validation.ignorePaths.length,
+      target_branch: validation.targetBranch || "(default)",
+    })}`
+  );
+
+  const helperRun = spawnSync(process.execPath, helperArgs, {
+    cwd: workspaceCwd,
+    encoding: "utf8",
+    maxBuffer: 1024 * 1024 * 10,
+  });
+
+  const stdout = (helperRun.stdout || "").trim();
+  const stderr = (helperRun.stderr || "").trim();
+  const exitStatus = helperRun.status;
+  const helperOk = exitStatus === 0 && !helperRun.error;
+
+  if (helperRun.error) {
+    return buildApprovedFinalizeFailureResult(
+      claimedJob,
+      [helperRun.error.message || String(helperRun.error)],
+      {
+        summary: "approved_finalize helper process failed",
+        invoked: true,
+        shell_commands_executed: true,
+        targetBranch: validation.targetBranch,
+        workspaceRef: validation.workspaceRef,
+        exitStatus,
+        stdout,
+        stderr,
+      }
+    );
+  }
+
+  const filesSeen = validation.allowlistPaths.map((filePath) => ({
+    path: filePath,
+    type: "file",
+  }));
+
+  const summaryParts = [
+    helperOk
+      ? "approved_finalize helper completed successfully"
+      : "approved_finalize helper failed",
+  ];
+  if (validation.targetBranch) {
+    summaryParts.push(`target_branch=${validation.targetBranch}`);
+  }
+  if (stdout) {
+    summaryParts.push(stdout);
+  } else if (stderr) {
+    summaryParts.push(stderr);
+  }
+
+  return {
+    status: helperOk ? "completed" : "failed",
+    worker_profile: WORKER_PROFILE,
+    repo_ref: claimedJob.repo_ref || null,
+    task_type: claimedJob.task_type || "approved_finalize",
+    files_seen: filesSeen,
+    summary: summaryParts.join("\n"),
+    errors: helperOk
+      ? []
+      : [stderr || stdout || `helper exited with status ${exitStatus}`],
+    safety: {
+      cursor_called: false,
+      snapshot_only: false,
+      files_modified: helperOk,
+      shell_commands_executed: true,
+      local_api_called: false,
+    },
+    approved_finalize: {
+      helper: "scripts/joa-finalize-reviewed.js",
+      invoked: true,
+      target_branch: validation.targetBranch,
+      workspace_ref: validation.workspaceRef,
+      allowlist_paths: validation.allowlistPaths,
+      ignore_paths: validation.ignorePaths,
+      exit_status: exitStatus,
+      stdout: stdout || null,
+      stderr: stderr || null,
+    },
+  };
 }
 
 function parseGitStatusPaths(statusShort) {
@@ -513,7 +749,18 @@ function runCursorAgentForJob(claimedJob) {
 }
 
 async function processClaimedJob(claimedJob) {
-  console.log(`Processing remote job: ${claimedJob.id} task_type=${claimedJob.task_type}`);
+  console.log(
+    `Processing remote job: ${claimedJob.id} ${formatWorkerContext({
+      task_type: claimedJob.task_type,
+    })}`
+  );
+
+  if (isApprovedFinalizeJob(claimedJob)) {
+    const workerResult = runApprovedFinalizeForJob(claimedJob);
+    const finished = submitResult(claimedJob.id, workerResult);
+    console.log(`Submitted result: ${finished.id} status=${finished.status}`);
+    return { claimedJob, workerResult, finished };
+  }
 
   const workerResult = executeCloudReadonlyJob(toWorkerJobPayload(claimedJob), {
     station_online: false,
@@ -594,6 +841,19 @@ async function processOneJob(options = {}) {
       return null;
     }
 
+    if (isApprovedFinalizeJob(claimed)) {
+      const workerResult = runApprovedFinalizeForJob(claimed);
+      const finished = await submitHttpResult(
+        tokenRecord.token,
+        claimed.id,
+        workerResult
+      );
+      console.log(
+        `Approved finalize result submitted: ${claimed.id} status=${workerResult.status}`
+      );
+      return { claimedJob: claimed, workerResult, finished };
+    }
+
     if (cursorAgent || options.cursorAgent) {
       const workerResult = runCursorAgentForJob(claimed);
       const finished = await submitHttpResult(
@@ -672,6 +932,9 @@ module.exports = {
   processOneJob,
   processClaimedJob,
   toWorkerJobPayload,
+  isApprovedFinalizeJob,
+  validateApprovedFinalizeJob,
+  runApprovedFinalizeForJob,
 };
 
 
