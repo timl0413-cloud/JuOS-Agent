@@ -15,6 +15,46 @@ const allowLaneClaim = process.argv.includes("--allow-lane");
 const cursorHandoff = process.argv.includes("--cursor-handoff");
 const submitHandoffResult = process.argv.includes("--submit-handoff-result");
 const cursorAgent = process.argv.includes("--cursor-agent");
+
+function loadLocalWorkerEnv() {
+  const fs = require("fs");
+  const path = require("path");
+
+  const candidates = [
+    path.join(__dirname, "..", "config", "command-channel-worker.env"),
+    path.join(process.cwd(), ".env.command-channel-worker"),
+    path.join(process.cwd(), ".env.juos.prod.local"),
+    path.join(process.cwd(), ".env.vercel.production.local"),
+  ];
+
+  for (const file of candidates) {
+    if (!fs.existsSync(file)) continue;
+
+    for (const rawLine of fs.readFileSync(file, "utf8").split(/\r?\n/)) {
+      const line = rawLine.trim();
+      if (!line || line.startsWith("#")) continue;
+
+      const eqIndex = line.indexOf("=");
+      if (eqIndex === -1) continue;
+
+      const key = line.slice(0, eqIndex).trim();
+      let value = line.slice(eqIndex + 1).trim();
+
+      if (
+        (value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'"))
+      ) {
+        value = value.slice(1, -1);
+      }
+
+      if (key && !process.env[key]) {
+        process.env[key] = value;
+      }
+    }
+  }
+}
+
+loadLocalWorkerEnv();
 const RESULT_FILE = parseNamedArg("--result-file");
 
 function parseNamedArg(flagName) {
@@ -490,3 +530,4 @@ module.exports = {
   processClaimedJob,
   toWorkerJobPayload,
 };
+
