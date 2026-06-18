@@ -19,6 +19,7 @@ const {
 const {
   validateCreateJobInput,
   buildNewJobRecord,
+  ALLOWED_WORKER_PROFILES,
 } = require("../lib/command-channel-core");
 
 const shouldRunLive = process.argv.includes("--live");
@@ -236,6 +237,73 @@ async function runMockAdapterChecks() {
       "unsafe high risk rejected before persistence",
       unsafe.ok === false,
       unsafe.errors.join("; ")
+    )
+  );
+
+  const joaValid = validateCreateJobInput({
+    target_worker_profile: "joa",
+    repo_ref: "TimOS-Agent",
+    workspace_ref: "C:\\projects\\TimOS-Agent",
+    task_type: "inspect_only",
+    risk_level: "low",
+  });
+  results.push(
+    assertCase(
+      "joa profile job validates",
+      joaValid.ok === true,
+      joaValid.errors.join("; ")
+    )
+  );
+
+  const joaInvalidTask = validateCreateJobInput({
+    target_worker_profile: "joa",
+    repo_ref: "TimOS-Agent",
+    workspace_ref: "C:\\projects\\TimOS-Agent",
+    task_type: "summarize_repo",
+    risk_level: "low",
+  });
+  results.push(
+    assertCase(
+      "joa profile rejects summarize_repo",
+      joaInvalidTask.ok === false,
+      joaInvalidTask.errors.join("; ")
+    )
+  );
+
+  const novaValid = validateCreateJobInput({
+    target_worker_profile: "nova-reading",
+    repo_ref: "TimOS-Agent",
+    task_type: "inspect_only",
+    risk_level: "low",
+  });
+  results.push(
+    assertCase(
+      "nova-reading profile job validates",
+      novaValid.ok === true,
+      novaValid.errors.join("; ")
+    )
+  );
+
+  const joaJob = buildNewJobRecord({
+    target_worker_profile: "joa",
+    repo_ref: "TimOS-Agent",
+    workspace_ref: "C:\\projects\\TimOS-Agent",
+    task_type: "inspect_only",
+    risk_level: "low",
+  });
+  results.push(
+    assertCase(
+      "buildNewJobRecord preserves requested target_worker_profile",
+      joaJob.target_worker_profile === "joa",
+      joaJob.target_worker_profile
+    )
+  );
+
+  results.push(
+    assertCase(
+      "allowed worker profiles include joa",
+      ALLOWED_WORKER_PROFILES.includes("joa"),
+      ALLOWED_WORKER_PROFILES.join(", ")
     )
   );
 
