@@ -45,6 +45,7 @@ while ($true) {
       $WorkerScript,
       "--http",
       "--once",
+      "--quiet",
       "--worker-profile",
       $profile,
       "--allow-lane"
@@ -53,9 +54,6 @@ while ($true) {
     if (-not $NoCursorAgent) {
       $argsList += "--cursor-agent"
     }
-
-    Write-Host ""
-    Write-Host "POLL profile=$profile workspace=$workspace"
 
     Push-Location $workspace
     try {

@@ -15,6 +15,7 @@ const allowLaneClaim = process.argv.includes("--allow-lane");
 const cursorHandoff = process.argv.includes("--cursor-handoff");
 const submitHandoffResult = process.argv.includes("--submit-handoff-result");
 const cursorAgent = process.argv.includes("--cursor-agent");
+const quiet = process.argv.includes("--quiet");
 
 function loadLocalWorkerEnv() {
   const fs = require("fs");
@@ -316,6 +317,21 @@ function isSupervisedImplementJob(claimedJob) {
   return claimedJob?.task_type === "supervised_implement";
 }
 
+function parseGitStatusPaths(statusShort) {
+  return (statusShort || "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const pathPart = line.slice(3).trim();
+      const renameArrow = " -> ";
+      if (pathPart.includes(renameArrow)) {
+        return pathPart.split(renameArrow).pop().trim();
+      }
+      return pathPart;
+    });
+}
+
 function readGitSnapshot() {
   const status = spawnSync("git", ["status", "--short"], {
     cwd: process.cwd(),
@@ -329,19 +345,12 @@ function readGitSnapshot() {
     maxBuffer: 1024 * 1024,
   });
 
-  const diffNameOnly = spawnSync("git", ["diff", "--name-only"], {
-    cwd: process.cwd(),
-    encoding: "utf8",
-    maxBuffer: 1024 * 1024,
-  });
+  const statusFiles = parseGitStatusPaths(status.stdout || "");
 
   return {
     status_short: status.stdout || "",
     diff_stat: diffStat.stdout || "",
-    diff_files: (diffNameOnly.stdout || "")
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter(Boolean),
+    diff_files: statusFiles,
   };
 }
 function buildCursorAgentPrompt(claimedJob) {
@@ -525,7 +534,9 @@ async function processOneJob(options = {}) {
     const token = options.token || getWorkerToken();
     const claimed = await claimHttpJob(token, jobId);
     if (!claimed) {
-      console.log(`No pending remote jobs for worker_profile=${WORKER_PROFILE}`);
+      if (!quiet) {
+        console.log(`No pending remote jobs for worker_profile=${WORKER_PROFILE}`);
+      }
       return null;
     }
 
@@ -552,7 +563,9 @@ async function processOneJob(options = {}) {
 
   const claimed = await claimLocalJob(jobId);
   if (!claimed) {
-    console.log(`No pending remote jobs for worker_profile=${WORKER_PROFILE}`);
+    if (!quiet) {
+      console.log(`No pending remote jobs for worker_profile=${WORKER_PROFILE}`);
+    }
     return null;
   }
 
@@ -560,11 +573,13 @@ async function processOneJob(options = {}) {
 }
 
 async function main() {
-  console.log(
-    `Command channel worker profile=${WORKER_PROFILE} mode=${useHttp ? "http" : "local"}`
-  );
+  if (!quiet) {
+    console.log(
+      `Command channel worker profile=${WORKER_PROFILE} mode=${useHttp ? "http" : "local"}`
+    );
+  }
 
-  if (JOB_ID) {
+  if (JOB_ID && !quiet) {
     console.log(`Target job id: ${JOB_ID}`);
   }
 
