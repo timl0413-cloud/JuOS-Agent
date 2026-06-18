@@ -8,6 +8,10 @@ const {
   submitResult,
   DEFAULT_WORKER_PROFILE,
 } = require("../lib/command-channel-coordinator");
+const {
+  JOA_REPO_REF,
+  JOA_WORKSPACE_REF,
+} = require("../lib/command-channel-core");
 const { executeCloudReadonlyJob } = require("../lib/cloud-readonly-worker");
 
 const runOnce = process.argv.includes("--once");
@@ -100,13 +104,52 @@ const baseUrl =
   process.env.COMMAND_CHANNEL_URL ||
   `http://${process.env.COMMAND_CHANNEL_HOST || "127.0.0.1"}:${process.env.COMMAND_CHANNEL_PORT || 8790}`;
 
+function getActiveWorkspaceRef() {
+  if (WORKER_PROFILE === "joa") {
+    return JOA_WORKSPACE_REF;
+  }
+  return process.cwd();
+}
+
+function formatWorkerContext(extra = {}) {
+  const parts = [
+    `worker_profile=${WORKER_PROFILE}`,
+    `workspace=${getActiveWorkspaceRef()}`,
+  ];
+
+  if (WORKER_PROFILE === "joa") {
+    parts.push(`repo_ref=${JOA_REPO_REF}`);
+  }
+
+  parts.push(`mode=${useHttp ? "http" : "local"}`);
+  if (useHttp) {
+    parts.push(`url=${baseUrl}`);
+  }
+
+  for (const [key, value] of Object.entries(extra)) {
+    if (value != null && value !== "") {
+      parts.push(`${key}=${value}`);
+    }
+  }
+
+  return parts.join(" ");
+}
+
+function workerError(message, extra = {}) {
+  const err = new Error(`${message} (${formatWorkerContext(extra)})`);
+  return err;
+}
+
 function getWorkerToken() {
   if (process.env.WORKER_TOKEN) {
-    return process.env.WORKER_TOKEN;
+    return { token: process.env.WORKER_TOKEN, source: "env:WORKER_TOKEN" };
   }
 
   if (process.env.COMMAND_CHANNEL_WORKER_TOKEN) {
-    return process.env.COMMAND_CHANNEL_WORKER_TOKEN;
+    return {
+      token: process.env.COMMAND_CHANNEL_WORKER_TOKEN,
+      source: "env:COMMAND_CHANNEL_WORKER_TOKEN",
+    };
   }
 
   const { loadAuthTokens, findTokenByName } = require("../lib/auth");
@@ -114,15 +157,19 @@ function getWorkerToken() {
   const tokens = loadAuthTokens();
 
   if (!tokens) {
-    throw new Error("WORKER_TOKEN env or config/auth.json worker token required");
+    throw workerError("worker token missing: set WORKER_TOKEN or config/auth.json", {
+      token_source: "none",
+    });
   }
 
   const record = findTokenByName(WORKER_TOKEN_NAME, tokens);
   if (!record?.token || record.token === "replace-with-cloud-readonly-worker-secret") {
-    throw new Error("cloud-readonly-worker token is not configured");
+    throw workerError(`worker token "${WORKER_TOKEN_NAME}" is not configured`, {
+      token_source: WORKER_TOKEN_NAME,
+    });
   }
 
-  return record.token;
+  return { token: record.token, source: WORKER_TOKEN_NAME };
 }
 
 async function httpRequest(method, urlPath, { body, token } = {}) {
@@ -269,7 +316,9 @@ async function submitCursorHandoffResult(options = {}) {
   const { filePath, result } = readCursorResult(jobId, options.resultFile ?? RESULT_FILE);
 
   if (useHttp || options.mode === "http") {
-    const token = options.token || getWorkerToken();
+    const { token } = options.token
+      ? { token: options.token }
+      : getWorkerToken();
     const finished = await submitHttpResult(token, jobId, result);
     console.log(`Submitted Cursor handoff result: ${finished.job?.id || jobId} status=${finished.job?.status || result.status}`);
     console.log(`Result file: ${filePath}`);
@@ -318,15 +367,16 @@ function isSupervisedImplementJob(claimedJob) {
 }
 
 function parseGitStatusPaths(statusShort) {
+  const renameArrow = " -> ";
+
   return (statusShort || "")
     .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean)
+    .filter((line) => line.trim().length > 0)
     .map((line) => {
-      const pathPart = line.slice(3).trim();
-      const renameArrow = " -> ";
+      const match = line.match(/^.. (.*)$/);
+      let pathPart = (match ? match[1] : line.slice(3)).trim();
       if (pathPart.includes(renameArrow)) {
-        return pathPart.split(renameArrow).pop().trim();
+        pathPart = pathPart.split(renameArrow).pop().trim();
       }
       return pathPart;
     });
@@ -497,8 +547,9 @@ async function claimHttpJob(token, jobId) {
   }
 
   if (!response.ok) {
-    throw new Error(
-      `Worker claim failed (${response.status}): ${JSON.stringify(response.data)}`
+    throw workerError(
+      `worker claim failed (${response.status}): ${JSON.stringify(response.data)}`,
+      { step: "claim" }
     );
   }
 
@@ -512,8 +563,9 @@ async function submitHttpResult(token, jobId, result) {
   });
 
   if (!response.ok) {
-    throw new Error(
-      `Worker result submit failed (${response.status}): ${JSON.stringify(response.data)}`
+    throw workerError(
+      `worker result submit failed (${response.status}): ${JSON.stringify(response.data)}`,
+      { step: "submit_result", job_id: jobId }
     );
   }
 
@@ -531,8 +583,10 @@ async function processOneJob(options = {}) {
   }
 
   if (mode === "http") {
-    const token = options.token || getWorkerToken();
-    const claimed = await claimHttpJob(token, jobId);
+    const tokenRecord = options.token
+      ? { token: options.token, source: "option" }
+      : getWorkerToken();
+    const claimed = await claimHttpJob(tokenRecord.token, jobId);
     if (!claimed) {
       if (!quiet) {
         console.log(`No pending remote jobs for worker_profile=${WORKER_PROFILE}`);
@@ -542,7 +596,11 @@ async function processOneJob(options = {}) {
 
     if (cursorAgent || options.cursorAgent) {
       const workerResult = runCursorAgentForJob(claimed);
-      const finished = await submitHttpResult(token, claimed.id, workerResult);
+      const finished = await submitHttpResult(
+        tokenRecord.token,
+        claimed.id,
+        workerResult
+      );
       console.log(`Cursor Agent result submitted: ${claimed.id} status=${workerResult.status}`);
       return { claimedJob: claimed, workerResult, finished };
     }
@@ -557,7 +615,11 @@ async function processOneJob(options = {}) {
     const workerResult = executeCloudReadonlyJob(toWorkerJobPayload(claimed), {
       station_online: false,
     });
-    const finished = await submitHttpResult(token, claimed.id, workerResult);
+    const finished = await submitHttpResult(
+      tokenRecord.token,
+      claimed.id,
+      workerResult
+    );
     return { claimedJob: claimed, workerResult, finished };
   }
 
@@ -574,9 +636,7 @@ async function processOneJob(options = {}) {
 
 async function main() {
   if (!quiet) {
-    console.log(
-      `Command channel worker profile=${WORKER_PROFILE} mode=${useHttp ? "http" : "local"}`
-    );
+    console.log(`Command channel worker ${formatWorkerContext()}`);
   }
 
   if (JOB_ID && !quiet) {
@@ -591,6 +651,9 @@ async function main() {
   if (!runOnce) {
     console.log("Pass --once to claim and process one job.");
     console.log("Optional: --job-id <uuid>  --http for HTTP polling mode.");
+    console.log(
+      "JOA finalize helper: node scripts/joa-finalize-reviewed.js --allowlist <path> [--ignore <path>] --message <text> [--approve]"
+    );
     return;
   }
 
