@@ -21,6 +21,9 @@ const cursorHandoff = process.argv.includes("--cursor-handoff");
 const submitHandoffResult = process.argv.includes("--submit-handoff-result");
 const cursorAgent = process.argv.includes("--cursor-agent");
 const quiet = process.argv.includes("--quiet");
+const POLL_INTERVAL_MS = Number(
+  process.env.COMMAND_CHANNEL_POLL_INTERVAL_MS || 5000
+);
 
 function loadLocalWorkerEnv() {
   const fs = require("fs");
@@ -142,6 +145,41 @@ function formatWorkerContext(extra = {}) {
 function workerError(message, extra = {}) {
   const err = new Error(`${message} (${formatWorkerContext(extra)})`);
   return err;
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function resolveWorkerRunMode({
+  runOnce: onceFlag = runOnce,
+  jobId = JOB_ID,
+  submitHandoff = submitHandoffResult,
+} = {}) {
+  if (submitHandoff) {
+    return "submit_handoff";
+  }
+  if (onceFlag || jobId) {
+    return "once";
+  }
+  return "persistent";
+}
+
+function logJobClaimed(claimed) {
+  console.log(
+    `Job claimed: ${claimed.id} ${formatWorkerContext({
+      task_type: claimed.task_type,
+    })}`
+  );
+}
+
+function logJobFinished(claimed, workerResult) {
+  const status = workerResult?.status || "unknown";
+  if (status === "failed") {
+    console.error(`Job failed: ${claimed.id} status=${status}`);
+    return;
+  }
+  console.log(`Job completed: ${claimed.id} status=${status}`);
 }
 
 function getWorkerToken() {
@@ -839,8 +877,9 @@ async function submitHttpResult(token, jobId, result) {
 async function processOneJob(options = {}) {
   const jobId = options.jobId ?? JOB_ID;
   const mode = options.mode || (useHttp ? "http" : "local");
+  const laneClaimAllowed = allowLaneClaim || options.allowLaneClaim;
 
-  if (!jobId && !allowLaneClaim && !options.allowLaneClaim) {
+  if (!jobId && !laneClaimAllowed) {
     throw new Error(
       "Refusing to claim by lane without --job-id or --allow-lane. Use explicit assignment first."
     );
@@ -852,11 +891,13 @@ async function processOneJob(options = {}) {
       : getWorkerToken();
     const claimed = await claimHttpJob(tokenRecord.token, jobId);
     if (!claimed) {
-      if (!quiet) {
+      if (!quiet && !options.suppressIdleLog) {
         console.log(`No pending remote jobs for worker_profile=${WORKER_PROFILE}`);
       }
       return null;
     }
+
+    logJobClaimed(claimed);
 
     if (isApprovedFinalizeJob(claimed)) {
       const workerResult = runApprovedFinalizeForJob(claimed);
@@ -897,18 +938,63 @@ async function processOneJob(options = {}) {
       claimed.id,
       workerResult
     );
+    logJobFinished(claimed, workerResult);
     return { claimedJob: claimed, workerResult, finished };
   }
 
   const claimed = await claimLocalJob(jobId);
   if (!claimed) {
-    if (!quiet) {
+    if (!quiet && !options.suppressIdleLog) {
       console.log(`No pending remote jobs for worker_profile=${WORKER_PROFILE}`);
     }
     return null;
   }
 
+  logJobClaimed(claimed);
   return processClaimedJob(claimed);
+}
+
+async function runPersistentWorker(options = {}) {
+  const maxIterations = options.maxIterations ?? Infinity;
+  const pollIntervalMs = options.pollIntervalMs ?? POLL_INTERVAL_MS;
+  let iterations = 0;
+
+  if (!quiet) {
+    console.log(
+      `Persistent polling hub active ${formatWorkerContext({
+        poll_interval_ms: pollIntervalMs,
+      })}`
+    );
+    console.log("Press Ctrl+C to stop.");
+  }
+
+  while (iterations < maxIterations) {
+    iterations += 1;
+
+    try {
+      const outcome = await processOneJob({
+        ...options,
+        allowLaneClaim: true,
+        suppressIdleLog: true,
+      });
+
+      if (outcome) {
+        continue;
+      }
+
+      if (iterations >= maxIterations) {
+        break;
+      }
+
+      await sleep(pollIntervalMs);
+    } catch (err) {
+      console.error(`Worker error: ${err.message}`);
+      if (iterations >= maxIterations) {
+        throw err;
+      }
+      await sleep(pollIntervalMs);
+    }
+  }
 }
 
 async function main() {
@@ -925,16 +1011,13 @@ async function main() {
     return;
   }
 
-  if (!runOnce) {
-    console.log("Pass --once to claim and process one job.");
-    console.log("Optional: --job-id <uuid>  --http for HTTP polling mode.");
-    console.log(
-      "JOA finalize helper: node scripts/joa-finalize-reviewed.js --allowlist <path> [--ignore <path>] --message <text> [--approve]"
-    );
+  const runMode = resolveWorkerRunMode();
+  if (runMode === "once") {
+    await processOneJob();
     return;
   }
 
-  await processOneJob();
+  await runPersistentWorker();
 }
 
 if (require.main === module) {
@@ -946,8 +1029,11 @@ if (require.main === module) {
 
 module.exports = {
   WORKER_PROFILE,
+  POLL_INTERVAL_MS,
   processOneJob,
   processClaimedJob,
+  runPersistentWorker,
+  resolveWorkerRunMode,
   toWorkerJobPayload,
   isApprovedFinalizeJob,
   validateApprovedFinalizeJob,

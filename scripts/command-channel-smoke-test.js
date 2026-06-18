@@ -7,7 +7,7 @@ const {
   validateCreateJobInput,
   DEFAULT_WORKER_PROFILE,
 } = require("../lib/command-channel-coordinator");
-const { processOneJob } = require("./command-channel-worker");
+const { processOneJob, resolveWorkerRunMode, runPersistentWorker } = require("./command-channel-worker");
 const { findEligibleWorkers, loadWorkerProfiles } = require("../lib/worker-routing");
 
 const FIXTURE_REPO_REF = "timos-agent-snapshot";
@@ -195,6 +195,71 @@ async function runSmokeTest() {
       dryValidation.errors.join("; ")
     )
   );
+
+  results.push(
+    assertCase(
+      "resolveWorkerRunMode once flag",
+      resolveWorkerRunMode({ runOnce: true, jobId: null }) === "once",
+      resolveWorkerRunMode({ runOnce: true, jobId: null })
+    )
+  );
+  results.push(
+    assertCase(
+      "resolveWorkerRunMode job id",
+      resolveWorkerRunMode({ runOnce: false, jobId: "job-123" }) === "once",
+      resolveWorkerRunMode({ runOnce: false, jobId: "job-123" })
+    )
+  );
+  results.push(
+    assertCase(
+      "resolveWorkerRunMode persistent hub",
+      resolveWorkerRunMode({ runOnce: false, jobId: null }) === "persistent",
+      resolveWorkerRunMode({ runOnce: false, jobId: null })
+    )
+  );
+
+  try {
+    await runPersistentWorker({
+      maxIterations: 1,
+      pollIntervalMs: 1,
+      mode: "local",
+      allowLaneClaim: true,
+    });
+    results.push(
+      assertCase(
+        "persistent worker hub exits after idle poll iteration",
+        true,
+        "maxIterations=1"
+      )
+    );
+  } catch (err) {
+    results.push(
+      assertCase(
+        "persistent worker hub exits after idle poll iteration",
+        false,
+        err.message
+      )
+    );
+  }
+
+  try {
+    await processOneJob({ mode: "local" });
+    results.push(
+      assertCase(
+        "processOneJob rejects lane claim without allow-lane",
+        false,
+        "expected refusal"
+      )
+    );
+  } catch (err) {
+    results.push(
+      assertCase(
+        "processOneJob rejects lane claim without allow-lane",
+        err.message.includes("Refusing to claim by lane"),
+        err.message
+      )
+    );
+  }
 
   printResults(results);
 }
