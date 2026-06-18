@@ -311,8 +311,65 @@ function findCursorAgentRuntime() {
   return { runtimeDir, nodePath, indexPath };
 }
 
+
+function isSupervisedImplementJob(claimedJob) {
+  return claimedJob?.task_type === "supervised_implement";
+}
+
+function readGitSnapshot() {
+  const status = spawnSync("git", ["status", "--short"], {
+    cwd: process.cwd(),
+    encoding: "utf8",
+    maxBuffer: 1024 * 1024,
+  });
+
+  const diffStat = spawnSync("git", ["diff", "--stat"], {
+    cwd: process.cwd(),
+    encoding: "utf8",
+    maxBuffer: 1024 * 1024,
+  });
+
+  const diffNameOnly = spawnSync("git", ["diff", "--name-only"], {
+    cwd: process.cwd(),
+    encoding: "utf8",
+    maxBuffer: 1024 * 1024,
+  });
+
+  return {
+    status_short: status.stdout || "",
+    diff_stat: diffStat.stdout || "",
+    diff_files: (diffNameOnly.stdout || "")
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean),
+  };
+}
 function buildCursorAgentPrompt(claimedJob) {
   const prompt = claimedJob.prompt || claimedJob.payload?.prompt || "";
+  const supervised = isSupervisedImplementJob(claimedJob);
+
+  if (supervised) {
+    return [
+      "You are Cursor Agent working under XiaoJu command-channel.",
+      "",
+      "Supervised implementation mode:",
+      "- Apply the requested local workspace code/file changes.",
+      "- Keep the diff minimal and focused.",
+      "- Do not commit.",
+      "- Do not push.",
+      "- Do not publish or deploy.",
+      "- Do not edit environment files.",
+      "- Do not expose credential values.",
+      "- Prefer not to run shell commands unless the task explicitly asks for tests.",
+      "- After edits, summarize what changed and what should be reviewed.",
+      "",
+      "Job:",
+      JSON.stringify(claimedJob, null, 2),
+      "",
+      "Task:",
+      prompt || "No task prompt provided.",
+    ].join("\n");
+  }
 
   return [
     "You are Cursor Agent working under XiaoJu/NovaReading command-channel.",
@@ -334,6 +391,7 @@ function buildCursorAgentPrompt(claimedJob) {
 function runCursorAgentForJob(claimedJob) {
   const runtime = findCursorAgentRuntime();
   const prompt = buildCursorAgentPrompt(claimedJob);
+  const supervised = isSupervisedImplementJob(claimedJob);
 
   const result = spawnSync(
     runtime.nodePath,
@@ -342,8 +400,7 @@ function runCursorAgentForJob(claimedJob) {
       "--print",
       "--output-format",
       "text",
-      "--mode",
-      "ask",
+      ...(supervised ? ["--force"] : ["--mode", "ask"]),
       "--trust",
       "--workspace",
       process.cwd(),
@@ -352,7 +409,7 @@ function runCursorAgentForJob(claimedJob) {
     {
       cwd: process.cwd(),
       encoding: "utf8",
-      timeout: 10 * 60 * 1000,
+      timeout: supervised ? 90 * 1000 : 10 * 60 * 1000,
       maxBuffer: 1024 * 1024 * 10,
     }
   );
@@ -360,17 +417,23 @@ function runCursorAgentForJob(claimedJob) {
   const stdout = (result.stdout || "").trim();
   const stderr = (result.stderr || "").trim();
 
-  if (result.error) {
+  const gitSnapshot = supervised ? readGitSnapshot() : null;
+  const cursorTimedOut = result.error?.code === "ETIMEDOUT";
+  const supervisedChangedFiles = supervised && gitSnapshot && gitSnapshot.diff_files.length > 0;
+  const cursorExitOk = result.status === 0;
+  const resultStatus = cursorExitOk || supervisedChangedFiles ? "completed" : "failed";
+
+  if (result.error && !(supervised && cursorTimedOut && supervisedChangedFiles)) {
     throw result.error;
   }
 
   return {
-    status: result.status === 0 ? "completed" : "failed",
+    status: resultStatus,
     worker_profile: WORKER_PROFILE,
     repo_ref: claimedJob.repo_ref || null,
-    task_type: "cursor_agent",
-    files_seen: [],
-    summary: stdout || stderr || "Cursor Agent returned no output.",
+    task_type: claimedJob.task_type || "cursor_agent",
+    files_seen: gitSnapshot ? gitSnapshot.diff_files.map((filePath) => ({ path: filePath, type: "file" })) : [],
+    summary: stdout || stderr || (cursorTimedOut ? "Cursor Agent timed out after supervised execution; runner submitted git snapshot." : "Cursor Agent returned no output."),
     errors: result.status === 0 ? [] : [stderr || `Cursor Agent exited with status ${result.status}`],
     safety: {
       cursor_called: true,
@@ -381,10 +444,12 @@ function runCursorAgentForJob(claimedJob) {
     },
     cursor_agent: {
       runtime_dir: runtime.runtimeDir,
-      mode: "ask",
+      mode: supervised ? "supervised_implement" : "ask",
       exit_status: result.status,
       stderr: stderr || null,
+      timed_out: cursorTimedOut,
     },
+    git_snapshot: gitSnapshot,
   };
 }
 
@@ -530,4 +595,8 @@ module.exports = {
   processClaimedJob,
   toWorkerJobPayload,
 };
+
+
+
+
 
