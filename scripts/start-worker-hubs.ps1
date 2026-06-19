@@ -35,6 +35,12 @@ $Hubs = @(
     Profile = "finance"
     Workspace = "C:\projects\TimFinance"
     WorkerScript = "C:\projects\TimOS-Agent\scripts\command-channel-worker.js"
+  },
+  @{
+    Name = "JuCore Worker Hub"
+    Profile = "jucore"
+    Workspace = "C:\projects\JuCore"
+    WorkerScript = "C:\projects\TimOS-Agent\scripts\command-channel-worker.js"
   }
 )
 
@@ -91,3 +97,4 @@ Write-Host "Worker hub windows launched from this token-loaded supervisor shell.
 Write-Host "Expected in child windows:"
 Write-Host "  Persistent polling hub active worker_profile=joa"
 Write-Host "  Persistent polling hub active worker_profile=finance"
+Write-Host "  Persistent polling hub active worker_profile=jucore"

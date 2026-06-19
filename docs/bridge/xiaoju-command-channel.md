@@ -2,6 +2,8 @@
 
 Tim should **only talk to XiaoJu**. XiaoJu creates jobs through an authenticated Action/API. Workers execute. XiaoJu reads results. Tim must not paste prompts between XiaoJu and Cursor/workers anymore.
 
+**Repo routing:** which repository a job uses is set on the **task payload** (`repo_ref`, `workspace_ref`, `target_worker_profile`), not by room identity. See [`../command-channel-repo-routing.md`](../command-channel-repo-routing.md) and [`../command-channel-room-capabilities.yaml`](../command-channel-room-capabilities.yaml).
+
 ## Flow
 
 ```

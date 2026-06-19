@@ -1,0 +1,115 @@
+# JuOS command-channel room capability registry (documentation only).
+# Rooms may have GPT Actions; repo dispatch is per job payload, not per room.
+# See docs/command-channel-repo-routing.md for routing policy and guardrails.
+
+version: "1.0"
+updated: "2026-06-19"
+
+routing_principle: >
+  repo_ref, workspace_ref, and target_worker_profile on each job determine
+  where work runs. Room identity is not a routing key.
+
+guardrails:
+  - no_automatic_repo_creation
+  - no_worker_profile_without_tim_approval
+  - no_sensitive_local_settings_in_docs
+  - no_production_settings_changes_from_docs
+
+confirmed_worker_profiles:
+  joa:
+    repo_ref: TimOS-Agent
+    workspace_ref: "C:\\projects\\TimOS-Agent"
+    worker_hub: scripts/start-worker-hubs.ps1 (JOA Worker Hub)
+    task_types:
+      - inspect_only
+      - supervised_implement
+      - approved_finalize
+    status: confirmed
+
+  finance:
+    repo_ref: TimFinance
+    workspace_ref: "C:\\projects\\TimFinance"
+    worker_hub: scripts/start-worker-hubs.ps1 (Finance Worker Hub)
+    task_types:
+      - supervised_implement
+      - approved_finalize
+    status: confirmed
+
+  jucore:
+    repo_ref: JuCore
+    workspace_ref: "C:\\projects\\JuCore"
+    worker_hub: scripts/start-worker-hubs.ps1 (JuCore Worker Hub)
+    task_types:
+      - supervised_implement
+      - approved_finalize
+    status: added
+    notes: Local Gsync/JuCore scaffold; Tim approved for command-channel routing.
+
+coordinator_profiles:
+  cloud-readonly:
+    description: Cloud read-only snapshot worker
+    requires_synced_repo: true
+    status: confirmed
+
+  nova-reading:
+    description: Read-only tasks against configured repo sources
+    status: confirmed
+
+rooms:
+  xiaoju:
+    display_name: XiaoJu
+    action_capable: true
+    primary_room: true
+    notes: Primary no-paste command channel; may target any valid profile/repo on the job payload.
+
+  gsync:
+    display_name: Gsync
+    action_capable: if_configured
+    repo_support: jucore_local_scaffold
+    primary_target_worker_profile: jucore
+    primary_repo_ref: JuCore
+    notes: >
+      Action may be wired later. Local scaffold routes to JuCore via
+      target_worker_profile jucore when the JuCore worker hub is running.
+      May also target other confirmed profiles on valid task payloads.
+
+  fa:
+    display_name: FA
+    action_capable: if_configured
+    repo_support: task_dependent
+    notes: May request work for confirmed profiles when task payload is valid.
+
+  job:
+    display_name: JOB
+    action_capable: if_configured
+    repo_support: task_dependent
+    notes: May request work for confirmed profiles when task payload is valid.
+
+  core:
+    display_name: Core
+    action_capable: if_configured
+    repo_support: task_dependent
+    future_repo: TBD
+    notes: >
+      Action may be wired later. Core repo is a planning placeholder only;
+      do not create without Tim approval.
+
+future_repos:
+  gsync:
+    status: local_scaffold
+    repo_ref: JuCore
+    workspace_ref: "C:\\projects\\JuCore"
+    target_worker_profile: jucore
+    notes: Local workspace scaffold; not a separate remote repo.
+
+  core:
+    status: planning_placeholder
+    repo_ref: TBD
+    workspace_ref: TBD
+
+smoke_test_checklist:
+  - create_supervised_inspect_only_job_with_valid_repo_ref_workspace_ref_and_target_worker_profile
+  - tim_approve
+  - matching_worker_hub_auto_claims
+  - cursor_result_status_completed
+  - no_file_changes_in_target_repo

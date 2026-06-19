@@ -126,6 +126,8 @@ function formatWorkerContext(extra = {}) {
     parts.push(`repo_ref=${JOA_REPO_REF}`);
   } else if (WORKER_PROFILE === "finance") {
     parts.push(`repo_ref=TimFinance`);
+  } else if (WORKER_PROFILE === "jucore") {
+    parts.push(`repo_ref=JuCore`);
   }
 
   parts.push(`mode=${useHttp ? "http" : "local"}`);

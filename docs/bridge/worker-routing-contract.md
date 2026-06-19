@@ -2,6 +2,8 @@
 
 Defines how the cloud coordinator routes jobs to replaceable workers. Complements `docs/bridge/coordinator-contract.md` (v0.7 intake/status) with capability-based worker selection.
 
+For JuOS room vs task-based repo assignment and confirmed local profiles (`joa`, `finance`, `jucore`), see [`../command-channel-repo-routing.md`](../command-channel-repo-routing.md).
+
 ## Job routing fields
 
 | Field | Required | Description |

@@ -334,6 +334,71 @@ async function runMockAdapterChecks() {
     )
   );
 
+  const jucoreValid = validateCreateJobInput({
+    target_worker_profile: "jucore",
+    repo_ref: "JuCore",
+    workspace_ref: "C:\\projects\\JuCore",
+    task_type: "supervised_implement",
+    risk_level: "low",
+  });
+  results.push(
+    assertCase(
+      "jucore profile job validates",
+      jucoreValid.ok === true,
+      jucoreValid.errors.join("; ")
+    )
+  );
+
+  const jucoreInvalidTask = validateCreateJobInput({
+    target_worker_profile: "jucore",
+    repo_ref: "JuCore",
+    workspace_ref: "C:\\projects\\JuCore",
+    task_type: "inspect_only",
+    risk_level: "low",
+  });
+  results.push(
+    assertCase(
+      "jucore profile rejects inspect_only",
+      jucoreInvalidTask.ok === false,
+      jucoreInvalidTask.errors.join("; ")
+    )
+  );
+
+  results.push(
+    assertCase(
+      "allowed worker profiles include jucore",
+      ALLOWED_WORKER_PROFILES.includes("jucore"),
+      ALLOWED_WORKER_PROFILES.join(", ")
+    )
+  );
+
+  const jucoreFinalizeValid = validateApprovedFinalizeContract({
+    workerProfile: "jucore",
+    repoRef: "JuCore",
+    workspaceRef: "C:\\projects\\JuCore",
+  });
+  results.push(
+    assertCase(
+      "approved_finalize jucore contract validates",
+      jucoreFinalizeValid.ok === true,
+      jucoreFinalizeValid.errors.join("; ")
+    )
+  );
+
+  const jucoreWrongWorkspace = validateApprovedFinalizeContract({
+    workerProfile: "jucore",
+    repoRef: "JuCore",
+    workspaceRef: "C:\\projects\\TimOS-Agent",
+  });
+  results.push(
+    assertCase(
+      "approved_finalize jucore rejects joa workspace",
+      jucoreWrongWorkspace.ok === false &&
+        jucoreWrongWorkspace.errors.some((item) => item.includes("workspace_ref")),
+      jucoreWrongWorkspace.errors.join("; ")
+    )
+  );
+
   const joaWrongWorkspace = validateApprovedFinalizeContract({
     workerProfile: "joa",
     repoRef: "TimOS-Agent",
@@ -450,6 +515,29 @@ async function runMockAdapterChecks() {
       financeWorkerMismatch.ok === false &&
         financeWorkerMismatch.errors.some((item) => item.includes("workspace_ref")),
       financeWorkerMismatch.errors?.join("; ") || "ok"
+    )
+  );
+
+  delete require.cache[workerModulePath];
+  process.env.COMMAND_CHANNEL_WORKER_PROFILE = "jucore";
+  const jucoreWorker = require("./command-channel-worker");
+  const jucoreFinalizeJob = {
+    id: "jucore-finalize-test",
+    target_worker_profile: "jucore",
+    repo_ref: "JuCore",
+    workspace_ref: "C:\\projects\\JuCore",
+    task_type: "approved_finalize",
+    approval_status: "approved",
+    allowlist_paths: ["README.md"],
+    message: "Finalize reviewed jucore change",
+  };
+  const jucoreWorkerValidation =
+    jucoreWorker.validateApprovedFinalizeJob(jucoreFinalizeJob);
+  results.push(
+    assertCase(
+      "worker approved_finalize validates jucore workspace contract",
+      jucoreWorkerValidation.ok === true,
+      jucoreWorkerValidation.errors?.join("; ") || "ok"
     )
   );
 
