@@ -1,4 +1,4 @@
-﻿param(
+param(
   [switch]$NoStart
 )
 
@@ -72,7 +72,7 @@ Write-Host "Starting $($Hub.Name)"
 Write-Host "worker_profile=$($Hub.Profile)"
 Write-Host "workspace=$($Hub.Workspace)"
 Write-Host "Do not close this window while worker hub should remain active."
-node "$($Hub.WorkerScript)" --http --worker-profile "$($Hub.Profile)"
+node "$($Hub.WorkerScript)" --http --worker-profile "$($Hub.Profile)" --cursor-agent
 "@
 
   $EncodedCommand = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($ChildCommand))
