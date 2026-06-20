@@ -13,6 +13,13 @@ const {
   resolveApprovedFinalizeWorkspace,
   validateApprovedFinalizeContract,
 } = require("../lib/command-channel-core");
+const {
+  isMultiWorkspaceProfile,
+  validateMultiWorkspaceJob,
+  resolveExecutionWorkspaceRef,
+  getResultReportContract,
+  getProfileGuardrails,
+} = require("../lib/workspace-target-registry");
 const { executeCloudReadonlyJob } = require("../lib/cloud-readonly-worker");
 
 const runOnce = process.argv.includes("--once");
@@ -128,6 +135,12 @@ function formatWorkerContext(extra = {}) {
     parts.push(`repo_ref=TimFinance`);
   } else if (WORKER_PROFILE === "jucore") {
     parts.push(`repo_ref=JuCore`);
+  } else if (WORKER_PROFILE === "nova") {
+    parts.push(`repo_ref=NovaUniverse`);
+  } else if (WORKER_PROFILE === "spacea") {
+    parts.push(`repo_ref=multi-workspace`);
+  } else if (WORKER_PROFILE === "ministry") {
+    parts.push(`repo_ref=multi-workspace`);
   }
 
   parts.push(`mode=${useHttp ? "http" : "local"}`);
@@ -413,8 +426,88 @@ function normalizeWorkspaceRef(value) {
     .toLowerCase();
 }
 
+function readJobWorkPurpose(claimedJob) {
+  return readJobContractField(claimedJob, "work_purpose");
+}
+
+function resolveJobWorkspaceRef(claimedJob) {
+  const workspaceRef =
+    claimedJob.workspace_ref || readJobContractField(claimedJob, "workspace_ref");
+
+  if (isMultiWorkspaceProfile(WORKER_PROFILE)) {
+    return (
+      resolveExecutionWorkspaceRef(WORKER_PROFILE, workspaceRef) || process.cwd()
+    );
+  }
+
+  if (workspaceRef) {
+    return workspaceRef.trim().replace(/\//g, "\\").replace(/\\+$/, "");
+  }
+
+  return process.cwd();
+}
+
+function validateJobWorkspaceContract(claimedJob) {
+  if (!isMultiWorkspaceProfile(WORKER_PROFILE)) {
+    return { ok: true, workspaceRef: resolveJobWorkspaceRef(claimedJob) };
+  }
+
+  const workspaceRef =
+    claimedJob.workspace_ref || readJobContractField(claimedJob, "workspace_ref");
+  const error = validateMultiWorkspaceJob(WORKER_PROFILE, {
+    workspace_ref: workspaceRef,
+    repo_ref: claimedJob.repo_ref,
+    work_purpose: readJobWorkPurpose(claimedJob),
+  });
+
+  if (error) {
+    return { ok: false, errors: [error], workspaceRef: null };
+  }
+
+  return {
+    ok: true,
+    workspaceRef: resolveExecutionWorkspaceRef(WORKER_PROFILE, workspaceRef),
+  };
+}
+
+function buildResultReportPromptSection(workerProfile) {
+  const fields = getResultReportContract(workerProfile);
+  if (fields.length === 0) {
+    return [];
+  }
+
+  const labels = {
+    workspace_touched: "workspace touched",
+    files_changed: "files changed",
+    what_changed: "what changed",
+    risks: "risks",
+    check_or_preview_result: "check / preview result if applicable",
+    what_tim_needs_to_review: "what Tim needs to review",
+    skipped_due_to_guardrails: "anything skipped due to guardrails",
+  };
+
+  return [
+    "Required result report sections:",
+    ...fields.map((field) => `- ${labels[field] || field}`),
+  ];
+}
+
+function buildProfileGuardrailPromptSection(workerProfile) {
+  const guardrails = getProfileGuardrails(workerProfile);
+  if (guardrails.length === 0) {
+    return [];
+  }
+
+  return ["Profile guardrails:", ...guardrails.map((item) => `- ${item}`)];
+}
+
 function isSupervisedImplementJob(claimedJob) {
   return claimedJob?.task_type === "supervised_implement";
+}
+
+function isMultiWorkspaceBridgeJob(claimedJob) {
+  const profile = claimedJob?.target_worker_profile || WORKER_PROFILE;
+  return isMultiWorkspaceProfile(profile);
 }
 
 function isApprovedFinalizeJob(claimedJob) {
@@ -488,6 +581,7 @@ function validateApprovedFinalizeJob(claimedJob) {
     workerProfile: targetWorkerProfile,
     repoRef: claimedJob.repo_ref,
     workspaceRef,
+    workPurpose: readJobWorkPurpose(claimedJob),
   });
   errors.push(...contractValidation.errors);
 
@@ -675,15 +769,15 @@ function parseGitStatusPaths(statusShort) {
     });
 }
 
-function readGitSnapshot() {
+function readGitSnapshot(workspacePath) {
   const status = spawnSync("git", ["status", "--short"], {
-    cwd: process.cwd(),
+    cwd: workspacePath,
     encoding: "utf8",
     maxBuffer: 1024 * 1024,
   });
 
   const diffStat = spawnSync("git", ["diff", "--stat"], {
-    cwd: process.cwd(),
+    cwd: workspacePath,
     encoding: "utf8",
     maxBuffer: 1024 * 1024,
   });
@@ -694,11 +788,21 @@ function readGitSnapshot() {
     status_short: status.stdout || "",
     diff_stat: diffStat.stdout || "",
     diff_files: statusFiles,
+    git_available: status.status === 0 || diffStat.status === 0,
   };
 }
 function buildCursorAgentPrompt(claimedJob) {
   const prompt = claimedJob.prompt || claimedJob.payload?.prompt || "";
   const supervised = isSupervisedImplementJob(claimedJob);
+  const workerProfile = claimedJob.target_worker_profile || WORKER_PROFILE;
+  const profileSections = isMultiWorkspaceProfile(workerProfile)
+    ? [
+        ...buildProfileGuardrailPromptSection(workerProfile),
+        "",
+        ...buildResultReportPromptSection(workerProfile),
+        "",
+      ]
+    : [];
 
   if (supervised) {
     return [
@@ -715,6 +819,7 @@ function buildCursorAgentPrompt(claimedJob) {
       "- Prefer not to run shell commands unless the task explicitly asks for tests.",
       "- After edits, summarize what changed and what should be reviewed.",
       "",
+      ...profileSections,
       "Job:",
       JSON.stringify(claimedJob, null, 2),
       "",
@@ -724,7 +829,7 @@ function buildCursorAgentPrompt(claimedJob) {
   }
 
   return [
-    "You are Cursor Agent working under XiaoJu/NovaReading command-channel.",
+    "You are Cursor Agent working under XiaoJu/NovaUniverse command-channel.",
     "",
     "Safety mode:",
     "- Do not modify files.",
@@ -732,6 +837,7 @@ function buildCursorAgentPrompt(claimedJob) {
     "- Analyze only.",
     "- Return a concise debug result.",
     "",
+    ...profileSections,
     "Job:",
     JSON.stringify(claimedJob, null, 2),
     "",
@@ -741,6 +847,27 @@ function buildCursorAgentPrompt(claimedJob) {
 }
 
 function runCursorAgentForJob(claimedJob) {
+  const workspaceValidation = validateJobWorkspaceContract(claimedJob);
+  if (!workspaceValidation.ok) {
+    return {
+      status: "failed",
+      worker_profile: WORKER_PROFILE,
+      repo_ref: claimedJob.repo_ref || null,
+      task_type: claimedJob.task_type || "cursor_agent",
+      files_seen: [],
+      summary: "workspace routing validation failed",
+      errors: workspaceValidation.errors,
+      safety: {
+        cursor_called: false,
+        snapshot_only: false,
+        files_modified: false,
+        shell_commands_executed: false,
+        local_api_called: false,
+      },
+    };
+  }
+
+  const executionWorkspace = workspaceValidation.workspaceRef;
   const runtime = findCursorAgentRuntime();
   const prompt = buildCursorAgentPrompt(claimedJob);
   const supervised = isSupervisedImplementJob(claimedJob);
@@ -755,11 +882,11 @@ function runCursorAgentForJob(claimedJob) {
       ...(supervised ? ["--force"] : ["--mode", "ask"]),
       "--trust",
       "--workspace",
-      process.cwd(),
+      executionWorkspace,
       prompt,
     ],
     {
-      cwd: process.cwd(),
+      cwd: executionWorkspace,
       encoding: "utf8",
       timeout: supervised ? 90 * 1000 : 10 * 60 * 1000,
       maxBuffer: 1024 * 1024 * 10,
@@ -769,9 +896,10 @@ function runCursorAgentForJob(claimedJob) {
   const stdout = (result.stdout || "").trim();
   const stderr = (result.stderr || "").trim();
 
-  const gitSnapshot = supervised ? readGitSnapshot() : null;
+  const gitSnapshot = supervised ? readGitSnapshot(executionWorkspace) : null;
   const cursorTimedOut = result.error?.code === "ETIMEDOUT";
-  const supervisedChangedFiles = supervised && gitSnapshot && gitSnapshot.diff_files.length > 0;
+  const supervisedChangedFiles =
+    supervised && gitSnapshot && gitSnapshot.diff_files.length > 0;
   const cursorExitOk = result.status === 0;
   const resultStatus = cursorExitOk || supervisedChangedFiles ? "completed" : "failed";
 
@@ -779,12 +907,25 @@ function runCursorAgentForJob(claimedJob) {
     throw result.error;
   }
 
+  const resultReport = isMultiWorkspaceBridgeJob(claimedJob)
+    ? {
+        required: true,
+        sections: getResultReportContract(
+          claimedJob.target_worker_profile || WORKER_PROFILE
+        ),
+        workspace_touched: executionWorkspace,
+      }
+    : null;
+
   return {
     status: resultStatus,
     worker_profile: WORKER_PROFILE,
     repo_ref: claimedJob.repo_ref || null,
     task_type: claimedJob.task_type || "cursor_agent",
-    files_seen: gitSnapshot ? gitSnapshot.diff_files.map((filePath) => ({ path: filePath, type: "file" })) : [],
+    workspace_ref: executionWorkspace,
+    files_seen: gitSnapshot
+      ? gitSnapshot.diff_files.map((filePath) => ({ path: filePath, type: "file" }))
+      : [],
     summary: stdout || stderr || (cursorTimedOut ? "Cursor Agent timed out after supervised execution; runner submitted git snapshot." : "Cursor Agent returned no output."),
     errors: result.status === 0 ? [] : [stderr || `Cursor Agent exited with status ${result.status}`],
     safety: {
@@ -802,6 +943,7 @@ function runCursorAgentForJob(claimedJob) {
       timed_out: cursorTimedOut,
     },
     git_snapshot: gitSnapshot,
+    result_report: resultReport,
   };
 }
 

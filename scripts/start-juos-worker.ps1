@@ -22,6 +22,10 @@ if (-not $Workspace) {
     "finance" { $Workspace = "C:\projects\TimFinance" }
     "ob" { $Workspace = "C:\projects\TimFinance" }
     "gsync" { $Workspace = "C:\projects\TimFinance" }
+    "jucore" { $Workspace = "C:\projects\JuCore" }
+    "nova" { $Workspace = "C:\projects\NovaUniverse" }
+    "spacea" { $Workspace = "C:\projects\TimOS-Agent" }
+    "ministry" { $Workspace = "C:\projects\TimOS-Agent" }
     "timos-core" { $Workspace = "C:\projects\TimOS-Core" }
     default { $Workspace = "C:\projects\TimOS-Agent" }
   }

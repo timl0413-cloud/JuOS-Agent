@@ -41,11 +41,31 @@ $Hubs = @(
     Profile = "jucore"
     Workspace = "C:\projects\JuCore"
     WorkerScript = "C:\projects\TimOS-Agent\scripts\command-channel-worker.js"
+  },
+  @{
+    Name = "Nova Worker Hub"
+    Profile = "nova"
+    Workspace = "C:\projects\NovaUniverse"
+    WorkerScript = "C:\projects\TimOS-Agent\scripts\command-channel-worker.js"
+  },
+  @{
+    Name = "SpaceA Worker Hub"
+    Profile = "spacea"
+    Workspace = "C:\projects\TimOS-Agent"
+    WorkerScript = "C:\projects\TimOS-Agent\scripts\command-channel-worker.js"
+    SkipWorkspaceExistenceCheck = $true
+  },
+  @{
+    Name = "Ministry Worker Hub"
+    Profile = "ministry"
+    Workspace = "C:\projects\TimOS-Agent"
+    WorkerScript = "C:\projects\TimOS-Agent\scripts\command-channel-worker.js"
+    SkipWorkspaceExistenceCheck = $true
   }
 )
 
 foreach ($Hub in $Hubs) {
-  if (-not (Test-Path $Hub.Workspace)) {
+  if (-not $Hub.SkipWorkspaceExistenceCheck -and -not (Test-Path $Hub.Workspace)) {
     throw "Workspace not found for $($Hub.Name): $($Hub.Workspace)"
   }
 
@@ -98,3 +118,6 @@ Write-Host "Expected in child windows:"
 Write-Host "  Persistent polling hub active worker_profile=joa"
 Write-Host "  Persistent polling hub active worker_profile=finance"
 Write-Host "  Persistent polling hub active worker_profile=jucore"
+Write-Host "  Persistent polling hub active worker_profile=nova"
+Write-Host "  Persistent polling hub active worker_profile=spacea"
+Write-Host "  Persistent polling hub active worker_profile=ministry"

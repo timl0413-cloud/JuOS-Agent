@@ -45,6 +45,45 @@ confirmed_worker_profiles:
     status: added
     notes: Local Gsync/JuCore scaffold; Tim approved for command-channel routing.
 
+  nova:
+    repo_ref: NovaUniverse
+    workspace_ref: "C:\\projects\\NovaUniverse"
+    worker_hub: scripts/start-worker-hubs.ps1 (Nova Worker Hub)
+    task_types:
+      - inspect_only
+      - supervised_implement
+      - approved_finalize
+    status: added
+    notes: Local NovaUniverse workspace; Tim approved for command-channel routing.
+
+  spacea:
+    repo_ref: per job (STUF, Kenkoup, Primoo, _ClientOps)
+    workspace_ref: per job (see config/workspace-targets.json)
+    worker_hub: scripts/start-worker-hubs.ps1 (SpaceA Worker Hub)
+    poll_workspace: "C:\\projects\\TimOS-Agent"
+    task_types:
+      - inspect_only
+      - supervised_implement
+      - approved_finalize
+    status: added
+    notes: >
+      Central bridge with multiple SpaceA execution targets. GospelFilm is not
+      SpaceA. Parent folder C:\projects\SpaceA is blocked for normal jobs.
+
+  ministry:
+    repo_ref: per job (IMPACT, BETHANY, GFPF, GospelFilm, _MinistryOps)
+    workspace_ref: per job (see config/workspace-targets.json)
+    worker_hub: scripts/start-worker-hubs.ps1 (Ministry Worker Hub)
+    poll_workspace: "C:\\projects\\TimOS-Agent"
+    task_types:
+      - inspect_only
+      - supervised_implement
+      - approved_finalize
+    status: added
+    notes: >
+      Central bridge with multiple MinistryOps execution targets including
+      GospelFilm. Parent folder C:\projects\MinistryOps is blocked for normal jobs.
+
 coordinator_profiles:
   cloud-readonly:
     description: Cloud read-only snapshot worker

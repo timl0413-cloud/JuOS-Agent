@@ -1,0 +1,76 @@
+{
+  "profiles": {
+    "spacea": {
+      "blocked_parent": "C:\\projects\\SpaceA",
+      "normal_targets": [
+        "C:\\projects\\SpaceA\\STUF-Website",
+        "C:\\projects\\SpaceA\\Kenkoup",
+        "C:\\projects\\SpaceA\\Primoo"
+      ],
+      "admin_target": "C:\\projects\\SpaceA\\_ClientOps",
+      "project_refs": {
+        "STUF": "C:\\projects\\SpaceA\\STUF-Website",
+        "STUF-Website": "C:\\projects\\SpaceA\\STUF-Website",
+        "Kenkoup": "C:\\projects\\SpaceA\\Kenkoup",
+        "Primoo": "C:\\projects\\SpaceA\\Primoo"
+      },
+      "admin_repo_ref": "_ClientOps",
+      "ministry_only_refs": ["GospelFilm"],
+      "guardrails": [
+        "Tim reviews before client-facing delivery",
+        "no passwords, private keys, or secrets",
+        "no billing, invoices, or contracts unless Tim explicitly approves",
+        "no final brand master asset changes unless Tim explicitly approves",
+        "no unrelated client folders",
+        "no broad refactors",
+        "no commit or push unless Tim explicitly approves"
+      ],
+      "result_report_fields": [
+        "workspace_touched",
+        "files_changed",
+        "what_changed",
+        "risks",
+        "check_or_preview_result",
+        "what_tim_needs_to_review",
+        "skipped_due_to_guardrails"
+      ]
+    },
+    "ministry": {
+      "blocked_parent": "C:\\projects\\MinistryOps",
+      "normal_targets": [
+        "C:\\projects\\MinistryOps\\IMPACT",
+        "C:\\projects\\MinistryOps\\BETHANY",
+        "C:\\projects\\MinistryOps\\GFPF",
+        "C:\\projects\\MinistryOps\\GospelFilm"
+      ],
+      "admin_target": "C:\\projects\\MinistryOps\\_MinistryOps",
+      "project_refs": {
+        "IMPACT": "C:\\projects\\MinistryOps\\IMPACT",
+        "BETHANY": "C:\\projects\\MinistryOps\\BETHANY",
+        "GFPF": "C:\\projects\\MinistryOps\\GFPF",
+        "GospelFilm": "C:\\projects\\MinistryOps\\GospelFilm"
+      },
+      "admin_repo_ref": "_MinistryOps",
+      "guardrails": [
+        "Tim or ministry owner reviews before ministry-facing delivery",
+        "no passwords, private keys, or secrets",
+        "no private member data",
+        "no financial records",
+        "no production or release settings unless Tim explicitly approves",
+        "no unrelated ministry folders",
+        "no broad refactors",
+        "no commit or push unless Tim explicitly approves"
+      ],
+      "result_report_fields": [
+        "workspace_touched",
+        "files_changed",
+        "what_changed",
+        "risks",
+        "check_or_preview_result",
+        "what_tim_needs_to_review",
+        "skipped_due_to_guardrails"
+      ]
+    }
+  },
+  "admin_work_purposes": ["registry", "admin", "template", "shared_ops"]
+}

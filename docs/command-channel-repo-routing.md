@@ -16,7 +16,7 @@ See also:
 | **Action capability** | Whether a room's GPT Action can call the command-channel API (`POST /remote-jobs`, `GET /remote-jobs/{id}`). Configured per room; separate from which repo a job targets. |
 | **`repo_ref`** | Logical repo identifier on the job (e.g. `TimOS-Agent`, `TimFinance`). Required for most routed work. |
 | **`workspace_ref`** | Local workspace path or logical workspace id the worker should use (e.g. `C:\projects\TimOS-Agent`). Required for supervised local profiles. |
-| **`target_worker_profile`** | Worker profile id the coordinator and worker hub use to claim and execute the job (e.g. `joa`, `finance`, `jucore`, `cloud-readonly`). |
+| **`target_worker_profile`** | Worker profile id the coordinator and worker hub use to claim and execute the job (e.g. `joa`, `finance`, `jucore`, `nova`, `spacea`, `ministry`, `cloud-readonly`). |
 | **Worker hub** | A long-running local process that polls the coordinator for jobs for one profile and executes them (typically via Cursor Agent). Started from scripts such as `scripts/start-worker-hubs.ps1` or `scripts/start-juos-worker-hub.ps1`. |
 
 ## Routing principle
@@ -50,8 +50,30 @@ These profiles have confirmed repo/workspace contracts in TimOS-Agent today:
 | `joa` | `TimOS-Agent` | `C:\projects\TimOS-Agent` | JOA worker hub; supervised implement / approved finalize |
 | `finance` | `TimFinance` | `C:\projects\TimFinance` | Finance worker hub |
 | `jucore` | `JuCore` | `C:\projects\JuCore` | JuCore worker hub (Gsync local scaffold); supervised implement / approved finalize |
+| `nova` | `NovaUniverse` | `C:\projects\NovaUniverse` | Nova worker hub; inspect / supervised implement / approved finalize |
+| `spacea` | per job (`STUF`, `Kenkoup`, `Primoo`, `_ClientOps`) | per job (see below) | SpaceA bridge; multi-target local Cursor routing |
+| `ministry` | per job (`IMPACT`, `BETHANY`, `GFPF`, `GospelFilm`, `_MinistryOps`) | per job (see below) | MinistryOps bridge; multi-target local Cursor routing |
 
 Additional coordinator profiles (e.g. `cloud-readonly`, `nova-reading`) use synced repo sources or read-only task types; see `lib/command-channel-core.js` and `bridge/worker-routing-contract.md`.
+
+### Multi-workspace bridge profiles (`spacea`, `ministry`)
+
+These profiles use **one central worker hub** (default poll workspace: `C:\projects\TimOS-Agent`) with **multiple allowed execution targets** defined in `config/workspace-targets.json` and validated by `lib/workspace-target-registry.js`.
+
+| Profile | Allowed normal workspace targets | Admin/shared target | Blocked parent |
+|---------|----------------------------------|---------------------|----------------|
+| `spacea` | `C:\projects\SpaceA\STUF-Website`, `Kenkoup`, `Primoo` | `C:\projects\SpaceA\_ClientOps` (requires `work_purpose`: registry, admin, template, shared_ops) | `C:\projects\SpaceA` |
+| `ministry` | `C:\projects\MinistryOps\IMPACT`, `BETHANY`, `GFPF`, `GospelFilm` | `C:\projects\MinistryOps\_MinistryOps` (requires `work_purpose`) | `C:\projects\MinistryOps` |
+
+Classification rules:
+
+- **SpaceA** projects: STUF, Kenkoup, Primoo
+- **MinistryOps** projects: IMPACT, BETHANY, GFPF, GospelFilm
+- **GospelFilm** belongs under MinistryOps only (`target_worker_profile: ministry`)
+- Billing channel must not decide workspace classification; project nature, ownership, and review context decide classification
+- Non-git folders are valid workspace targets (git is not required for routing validation)
+
+Every `spacea` / `ministry` job result should include a structured report: workspace touched, files changed, what changed, risks, check/preview result, what Tim needs to review, and anything skipped due to guardrails.
 
 ## Action-capable rooms (registry)
 
@@ -59,7 +81,7 @@ Rooms that **may** have command-channel Actions when configured:
 
 | Room | Action-capable | Repo/profile support |
 |------|----------------|----------------------|
-| XiaoJu | yes (primary) | Any valid task target; typically `joa`, `finance`, or `jucore` |
+| XiaoJu | yes (primary) | Any valid task target; typically `joa`, `finance`, `jucore`, `nova`, `spacea`, or `ministry` |
 | Gsync | if configured | Local scaffold via `jucore` + `JuCore` when hub is running; may also target other confirmed profiles |
 | FA | if configured | Depends on task target and available profiles |
 | JOB | if configured | Depends on task target and available profiles |
@@ -134,23 +156,104 @@ When additional repos exist beyond the local JuCore scaffold, add worker profile
 }
 ```
 
+### Supervised implement (NovaUniverse via nova profile)
+
+```json
+{
+  "requested_by": "xiaoju",
+  "repo_ref": "NovaUniverse",
+  "workspace_ref": "C:\\projects\\NovaUniverse",
+  "target_worker_profile": "nova",
+  "task_type": "supervised_implement",
+  "risk_level": "low",
+  "auto_run_requested": true,
+  "prompt": "Task description here.",
+  "approval_required": true
+}
+```
+
+### Supervised implement (STUF via spacea profile)
+
+```json
+{
+  "requested_by": "xiaoju",
+  "repo_ref": "STUF",
+  "workspace_ref": "C:\\projects\\SpaceA\\STUF-Website",
+  "target_worker_profile": "spacea",
+  "task_type": "supervised_implement",
+  "risk_level": "low",
+  "auto_run_requested": true,
+  "prompt": "Task description here.",
+  "approval_required": true
+}
+```
+
+### Supervised implement (IMPACT via ministry profile)
+
+```json
+{
+  "requested_by": "xiaoju",
+  "repo_ref": "IMPACT",
+  "workspace_ref": "C:\\projects\\MinistryOps\\IMPACT",
+  "target_worker_profile": "ministry",
+  "task_type": "supervised_implement",
+  "risk_level": "low",
+  "auto_run_requested": true,
+  "prompt": "Task description here.",
+  "approval_required": true
+}
+```
+
+### Supervised implement (GospelFilm via ministry profile)
+
+```json
+{
+  "requested_by": "xiaoju",
+  "repo_ref": "GospelFilm",
+  "workspace_ref": "C:\\projects\\MinistryOps\\GospelFilm",
+  "target_worker_profile": "ministry",
+  "task_type": "supervised_implement",
+  "risk_level": "low",
+  "auto_run_requested": true,
+  "prompt": "Task description here.",
+  "approval_required": true
+}
+```
+
+### Admin registry work (SpaceA _ClientOps)
+
+```json
+{
+  "requested_by": "xiaoju",
+  "repo_ref": "_ClientOps",
+  "workspace_ref": "C:\\projects\\SpaceA\\_ClientOps",
+  "target_worker_profile": "spacea",
+  "work_purpose": "registry",
+  "task_type": "supervised_implement",
+  "risk_level": "low",
+  "auto_run_requested": true,
+  "prompt": "Update client registry entry.",
+  "approval_required": true
+}
+```
+
 ## Room smoke test checklist
 
 Use this after wiring a room's Action or changing routing policy. Goal: prove end-to-end flow with **no file changes**.
 
 1. **Create job** — From the room, create a supervised `inspect_only` job with `repo_ref`, `workspace_ref`, and `target_worker_profile` set for a confirmed profile (e.g. `joa` + `TimOS-Agent`).
 2. **Tim approve** — Job stays pending until Tim approves (`approval_required: true`).
-3. **Hub auto-claim** — Matching worker hub is running (`worker_profile=joa`, `finance`, or `jucore`); job moves to `claimed`.
+3. **Hub auto-claim** — Matching worker hub is running (`worker_profile=joa`, `finance`, `jucore`, `nova`, `spacea`, or `ministry`); job moves to `claimed`.
 4. **Cursor result completed** — Worker finishes; poll `GET /remote-jobs/{id}` until `status: completed` with a result summary.
 5. **No file changes** — Confirm `inspect_only` produced read-only output; working tree in the target repo is unchanged.
 
-Local hub startup (reference only): `scripts/start-worker-hubs.ps1` for `joa`, `finance`, and `jucore` hubs.
+Local hub startup (reference only): `scripts/start-worker-hubs.ps1` for `joa`, `finance`, `jucore`, `nova`, `spacea`, and `ministry` hubs.
 
 ## Related scripts
 
 | Script | Purpose |
 |--------|---------|
-| `scripts/start-worker-hubs.ps1` | Launch JOA, Finance, and JuCore persistent hubs |
+| `scripts/start-worker-hubs.ps1` | Launch JOA, Finance, JuCore, Nova, SpaceA, and Ministry persistent hubs |
 | `scripts/start-juos-worker-hub.ps1` | Multi-profile poll loop (dev / extended profiles) |
 | `scripts/command-channel-worker.js` | Worker poll, claim, Cursor handoff |
 | `scripts/command-channel-smoke-test.js` | Local coordinator contract smoke test |

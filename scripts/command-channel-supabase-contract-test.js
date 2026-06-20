@@ -22,6 +22,10 @@ const {
   ALLOWED_WORKER_PROFILES,
   validateApprovedFinalizeContract,
 } = require("../lib/command-channel-core");
+const {
+  validateMultiWorkspaceJob,
+  getResultReportContract,
+} = require("../lib/workspace-target-registry");
 
 const shouldRunLive = process.argv.includes("--live");
 const FIXTURE_REPO_REF = "timos-agent-snapshot";
@@ -385,6 +389,263 @@ async function runMockAdapterChecks() {
     )
   );
 
+  const novaProfileValid = validateCreateJobInput({
+    target_worker_profile: "nova",
+    repo_ref: "NovaUniverse",
+    workspace_ref: "C:\\projects\\NovaUniverse",
+    task_type: "supervised_implement",
+    risk_level: "low",
+  });
+  results.push(
+    assertCase(
+      "nova profile job validates",
+      novaProfileValid.ok === true,
+      novaProfileValid.errors.join("; ")
+    )
+  );
+
+  const novaInvalidTask = validateCreateJobInput({
+    target_worker_profile: "nova",
+    repo_ref: "NovaUniverse",
+    workspace_ref: "C:\\projects\\NovaUniverse",
+    task_type: "summarize_repo",
+    risk_level: "low",
+  });
+  results.push(
+    assertCase(
+      "nova profile rejects summarize_repo",
+      novaInvalidTask.ok === false,
+      novaInvalidTask.errors.join("; ")
+    )
+  );
+
+  results.push(
+    assertCase(
+      "allowed worker profiles include nova",
+      ALLOWED_WORKER_PROFILES.includes("nova"),
+      ALLOWED_WORKER_PROFILES.join(", ")
+    )
+  );
+
+  const novaFinalizeValid = validateApprovedFinalizeContract({
+    workerProfile: "nova",
+    repoRef: "NovaUniverse",
+    workspaceRef: "C:\\projects\\NovaUniverse",
+  });
+  results.push(
+    assertCase(
+      "approved_finalize nova contract validates",
+      novaFinalizeValid.ok === true,
+      novaFinalizeValid.errors.join("; ")
+    )
+  );
+
+  const novaWrongWorkspace = validateApprovedFinalizeContract({
+    workerProfile: "nova",
+    repoRef: "NovaUniverse",
+    workspaceRef: "C:\\projects\\TimOS-Agent",
+  });
+  results.push(
+    assertCase(
+      "approved_finalize nova rejects joa workspace",
+      novaWrongWorkspace.ok === false &&
+        novaWrongWorkspace.errors.some((item) => item.includes("workspace_ref")),
+      novaWrongWorkspace.errors.join("; ")
+    )
+  );
+
+  const stufValid = validateCreateJobInput({
+    target_worker_profile: "spacea",
+    repo_ref: "STUF",
+    workspace_ref: "C:\\projects\\SpaceA\\STUF-Website",
+    task_type: "supervised_implement",
+    risk_level: "low",
+  });
+  results.push(
+    assertCase(
+      "spacea STUF target validates",
+      stufValid.ok === true,
+      stufValid.errors.join("; ")
+    )
+  );
+
+  const impactValid = validateCreateJobInput({
+    target_worker_profile: "ministry",
+    repo_ref: "IMPACT",
+    workspace_ref: "C:\\projects\\MinistryOps\\IMPACT",
+    task_type: "supervised_implement",
+    risk_level: "low",
+  });
+  results.push(
+    assertCase(
+      "ministry IMPACT target validates",
+      impactValid.ok === true,
+      impactValid.errors.join("; ")
+    )
+  );
+
+  const gospelFilmMinistryValid = validateCreateJobInput({
+    target_worker_profile: "ministry",
+    repo_ref: "GospelFilm",
+    workspace_ref: "C:\\projects\\MinistryOps\\GospelFilm",
+    task_type: "supervised_implement",
+    risk_level: "low",
+  });
+  results.push(
+    assertCase(
+      "GospelFilm under MinistryOps validates",
+      gospelFilmMinistryValid.ok === true,
+      gospelFilmMinistryValid.errors.join("; ")
+    )
+  );
+
+  const gospelFilmSpaceARejected = validateCreateJobInput({
+    target_worker_profile: "spacea",
+    repo_ref: "GospelFilm",
+    workspace_ref: "C:\\projects\\MinistryOps\\GospelFilm",
+    task_type: "supervised_implement",
+    risk_level: "low",
+  });
+  results.push(
+    assertCase(
+      "GospelFilm under SpaceA profile rejected",
+      gospelFilmSpaceARejected.ok === false &&
+        gospelFilmSpaceARejected.errors.some((item) =>
+          item.includes("GospelFilm")
+        ),
+      gospelFilmSpaceARejected.errors.join("; ")
+    )
+  );
+
+  const spaceaParentRejected = validateCreateJobInput({
+    target_worker_profile: "spacea",
+    repo_ref: "STUF",
+    workspace_ref: "C:\\projects\\SpaceA",
+    task_type: "supervised_implement",
+    risk_level: "low",
+  });
+  results.push(
+    assertCase(
+      "C:\\projects\\SpaceA parent folder rejected",
+      spaceaParentRejected.ok === false &&
+        spaceaParentRejected.errors.some((item) => item.includes("blocked")),
+      spaceaParentRejected.errors.join("; ")
+    )
+  );
+
+  const ministryParentRejected = validateCreateJobInput({
+    target_worker_profile: "ministry",
+    repo_ref: "IMPACT",
+    workspace_ref: "C:\\projects\\MinistryOps",
+    task_type: "supervised_implement",
+    risk_level: "low",
+  });
+  results.push(
+    assertCase(
+      "C:\\projects\\MinistryOps parent folder rejected",
+      ministryParentRejected.ok === false &&
+        ministryParentRejected.errors.some((item) => item.includes("blocked")),
+      ministryParentRejected.errors.join("; ")
+    )
+  );
+
+  const nonGitPathValid = validateCreateJobInput({
+    target_worker_profile: "spacea",
+    repo_ref: "Kenkoup",
+    workspace_ref: "C:\\projects\\SpaceA\\Kenkoup",
+    task_type: "inspect_only",
+    risk_level: "low",
+  });
+  results.push(
+    assertCase(
+      "non-git workspace path allowed without git requirement",
+      nonGitPathValid.ok === true,
+      nonGitPathValid.errors.join("; ")
+    )
+  );
+
+  const clientOpsWithoutPurpose = validateCreateJobInput({
+    target_worker_profile: "spacea",
+    repo_ref: "_ClientOps",
+    workspace_ref: "C:\\projects\\SpaceA\\_ClientOps",
+    task_type: "supervised_implement",
+    risk_level: "low",
+  });
+  results.push(
+    assertCase(
+      "_ClientOps rejected without admin work_purpose",
+      clientOpsWithoutPurpose.ok === false &&
+        clientOpsWithoutPurpose.errors.some((item) =>
+          item.includes("work_purpose")
+        ),
+      clientOpsWithoutPurpose.errors.join("; ")
+    )
+  );
+
+  const clientOpsWithPurpose = validateCreateJobInput({
+    target_worker_profile: "spacea",
+    repo_ref: "_ClientOps",
+    workspace_ref: "C:\\projects\\SpaceA\\_ClientOps",
+    work_purpose: "registry",
+    task_type: "supervised_implement",
+    risk_level: "low",
+  });
+  results.push(
+    assertCase(
+      "_ClientOps allowed with registry work_purpose",
+      clientOpsWithPurpose.ok === true,
+      clientOpsWithPurpose.errors.join("; ")
+    )
+  );
+
+  const ministryOpsWithPurpose = validateCreateJobInput({
+    target_worker_profile: "ministry",
+    repo_ref: "_MinistryOps",
+    workspace_ref: "C:\\projects\\MinistryOps\\_MinistryOps",
+    work_purpose: "template",
+    task_type: "supervised_implement",
+    risk_level: "low",
+  });
+  results.push(
+    assertCase(
+      "_MinistryOps allowed with template work_purpose",
+      ministryOpsWithPurpose.ok === true,
+      ministryOpsWithPurpose.errors.join("; ")
+    )
+  );
+
+  results.push(
+    assertCase(
+      "allowed worker profiles include spacea and ministry",
+      ALLOWED_WORKER_PROFILES.includes("spacea") &&
+        ALLOWED_WORKER_PROFILES.includes("ministry"),
+      ALLOWED_WORKER_PROFILES.join(", ")
+    )
+  );
+
+  results.push(
+    assertCase(
+      "spacea result report contract includes required sections",
+      getResultReportContract("spacea").includes("workspace_touched") &&
+        getResultReportContract("spacea").includes("what_tim_needs_to_review"),
+      getResultReportContract("spacea").join(", ")
+    )
+  );
+
+  results.push(
+    assertCase(
+      "validateMultiWorkspaceJob rejects GospelFilm on spacea profile",
+      validateMultiWorkspaceJob("spacea", {
+        repo_ref: "GospelFilm",
+        workspace_ref: "C:\\projects\\MinistryOps\\GospelFilm",
+      }) !== null,
+      validateMultiWorkspaceJob("spacea", {
+        repo_ref: "GospelFilm",
+        workspace_ref: "C:\\projects\\MinistryOps\\GospelFilm",
+      }) || "ok"
+    )
+  );
+
   const jucoreWrongWorkspace = validateApprovedFinalizeContract({
     workerProfile: "jucore",
     repoRef: "JuCore",
@@ -538,6 +799,29 @@ async function runMockAdapterChecks() {
       "worker approved_finalize validates jucore workspace contract",
       jucoreWorkerValidation.ok === true,
       jucoreWorkerValidation.errors?.join("; ") || "ok"
+    )
+  );
+
+  delete require.cache[workerModulePath];
+  process.env.COMMAND_CHANNEL_WORKER_PROFILE = "nova";
+  const novaWorker = require("./command-channel-worker");
+  const novaFinalizeJob = {
+    id: "nova-finalize-test",
+    target_worker_profile: "nova",
+    repo_ref: "NovaUniverse",
+    workspace_ref: "C:\\projects\\NovaUniverse",
+    task_type: "approved_finalize",
+    approval_status: "approved",
+    allowlist_paths: ["README.md"],
+    message: "Finalize reviewed nova change",
+  };
+  const novaWorkerValidation =
+    novaWorker.validateApprovedFinalizeJob(novaFinalizeJob);
+  results.push(
+    assertCase(
+      "worker approved_finalize validates nova workspace contract",
+      novaWorkerValidation.ok === true,
+      novaWorkerValidation.errors?.join("; ") || "ok"
     )
   );
 

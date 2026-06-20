@@ -22,6 +22,10 @@ function Get-WorkspaceForProfile {
     "finance" { return "C:\projects\TimFinance" }
     "ob" { return "C:\projects\TimFinance" }
     "gsync" { return "C:\projects\TimFinance" }
+    "jucore" { return "C:\projects\JuCore" }
+    "nova" { return "C:\projects\NovaUniverse" }
+    "spacea" { return "C:\projects\TimOS-Agent" }
+    "ministry" { return "C:\projects\TimOS-Agent" }
     "timos-core" { return "C:\projects\TimOS-Core" }
     default { return "C:\projects\TimOS-Agent" }
   }
