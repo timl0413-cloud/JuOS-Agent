@@ -2,6 +2,22 @@
 
 Read-only command-channel and worker bridge visibility for Travel Mode. Tim can see stranded, running, completed, and failed jobs without CLI.
 
+## Control Tower (start here for motion)
+
+**When Tim asks “what is happening now?”** use the Control Tower — not the full bucket tables.
+
+| Question | Control Tower answer |
+|----------|---------------------|
+| Is anything running? | `motion_state`, `active_job_count`, **Running now** table |
+| Is XiaoJu waiting on me? | `waiting_on: Tim`, `pending_approval_count` > 0 |
+| Is a worker running? | `motion_state: running`, `active_job_count` ≥ 1 |
+| Who acts next? | `next_action_owner`, `next_action_text` |
+| Can another room start? | **Cross-room launch readiness** table + `lane_readiness_summary` |
+
+Full Control Tower doc: [`control-tower-motion-v0.md`](./control-tower-motion-v0.md)
+
+Cross-room handoff template: [`templates/command-channel/cross-room-readiness-packet.md`](../../templates/command-channel/cross-room-readiness-packet.md)
+
 ## Short names (recommended)
 
 Remember three aliases — full detail in [`short-status-routes-v0.md`](./short-status-routes-v0.md):
@@ -29,10 +45,10 @@ start http://127.0.0.1:8790/tower/preview
 | API preview route (legacy path) | Sample | `http://127.0.0.1:8790/joa/bridge-status/preview` |
 | **Short live route** | **Live** | `GET /status` with Bearer `remote-jobs:list` |
 | API live route (legacy path) | **Live** | `GET /joa/bridge-status` with Bearer `remote-jobs:list` |
-| **Short live JSON** | **Live** | `GET /status/summary` with Bearer `remote-jobs:list` |
+| **Short live JSON** | **Live** | `GET /status/summary` with Bearer `remote-jobs:list` (includes `control_tower` block) |
 | API live JSON (legacy path) | **Live** | `GET /joa/bridge-status/summary` with Bearer `remote-jobs:list` |
 
-CLI shortcuts: `npm run status:bridge`, `npm run status:watch`, `npm run status:tower`.
+CLI shortcuts: `npm run status:bridge`, `npm run status:watch`, `npm run status:tower`, `npm run status:command-channel:control-tower`.
 
 External MacBook/phone path: see [`bridge-status-external-v0.md`](./bridge-status-external-v0.md).
 
@@ -147,6 +163,7 @@ Tim should not paste worker terminal output when `result.summary` or `errors` ar
 
 ## Related
 
+- **Control Tower:** [`control-tower-motion-v0.md`](./control-tower-motion-v0.md) — motion, next owner, lane readiness
 - **Short routes:** [`short-status-routes-v0.md`](./short-status-routes-v0.md) — `/tower`, `/watch`, `/status`
 - No-paste SOP: [`no-paste-worker-loop-v0.md`](./no-paste-worker-loop-v0.md)
 - Finalize paths: [`finalize-exact-path-sop.md`](./finalize-exact-path-sop.md)

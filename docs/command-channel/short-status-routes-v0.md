@@ -76,6 +76,8 @@ node scripts/command-channel-status.js --local --watch --json
 
 ## What each alias shows
 
+See [`control-tower-motion-v0.md`](./control-tower-motion-v0.md).
+
 ### `/tower` — Control Tower motion
 
 Derived from command-channel job data + time sweep thresholds:

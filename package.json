@@ -22,6 +22,7 @@
     "status:command-channel:recovery": "node scripts/command-channel-status.js --http --recovery",
     "status:command-channel:time-sweep": "node scripts/command-channel-status.js --http --time-sweep",
     "status:command-channel:watch": "node scripts/command-channel-status.js --http --watch --profile joa",
+    "status:command-channel:control-tower": "node scripts/command-channel-status.js --http --tower --profile joa",
     "status:bridge": "node scripts/command-channel-status.js --local",
     "status:watch": "node scripts/command-channel-status.js --local --watch --profile joa",
     "status:tower": "node scripts/command-channel-status.js --local --tower --profile joa",

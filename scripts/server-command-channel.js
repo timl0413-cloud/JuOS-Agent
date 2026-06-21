@@ -220,7 +220,15 @@ async function buildBridgeStatusView(url) {
   const summary = buildBridgeStatusSummary(jobs, {
     backend: getBackendStatus(),
   });
-  return buildViewModel(summary);
+  const viewModel = buildViewModel(summary);
+  const controlTower = buildTowerSummary(jobs, {
+    summary,
+    backend: getBackendStatus(),
+  });
+  return {
+    ...viewModel,
+    control_tower: controlTower.compact,
+  };
 }
 
 async function buildWatchStatusView(url) {
