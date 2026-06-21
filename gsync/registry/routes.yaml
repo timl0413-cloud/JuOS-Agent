@@ -1,0 +1,37 @@
+baseline_ref: "XiaoJu Ecosystem Program Development Baseline V6.0"
+overlay_ref: "JUB / GSync Calibration Before 7/7"
+updated_at: "2026-06-19"
+
+# Metadata-only route definitions. No automation. All routing requires Tim approval.
+
+routes:
+  - route_id: "jub-to-gsync"
+    source: "JUB"
+    target: "GSync"
+    description: "JUB publishes boundaries, baselines, blockers, and decisions into GSync registry"
+    allowed_packet_types:
+      - boundary
+      - baseline
+      - blocker
+      - decision
+    requires_tim_approval: true
+
+  - route_id: "gsync-to-jex"
+    source: "GSync"
+    target: "JEX"
+    description: "GSync handoff summaries and blockers to JEX (XJu Ex shorthand)"
+    allowed_packet_types:
+      - summary
+      - blocker
+      - handoff
+    requires_tim_approval: true
+
+  - route_id: "stuf-project-room-to-gsync"
+    source: "STUF Project Room"
+    target: "GSync"
+    description: "STUF workflow, blocker, and decision packets into GSync for Taiwan readiness context"
+    allowed_packet_types:
+      - workflow
+      - blocker
+      - decision
+    requires_tim_approval: true
