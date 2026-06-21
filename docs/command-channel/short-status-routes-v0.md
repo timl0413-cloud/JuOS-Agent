@@ -8,10 +8,22 @@ Tim asked for three memorable names instead of long Bridge Status URLs. Remember
 | **`/watch`** | Assistant Watcher — completed-needs-review, failed, pending/stranded, running-too-long |
 | **`/status`** | General Bridge Status — stranded, running, completed, failed buckets |
 
-Start the local command-channel server first:
+## Live vs sample (read this first)
+
+| URL | Data |
+|-----|------|
+| **`http://127.0.0.1:8790/tower`** | **LIVE DATA** — real command-channel state |
+| `http://127.0.0.1:8790/tower/preview` | **SAMPLE DATA ONLY** — fake jobs for layout testing |
+
+Every page shows a top badge: **LIVE DATA** or **SAMPLE DATA ONLY**. See [`local-live-tower-v0.md`](./local-live-tower-v0.md).
+
+## Local live browser (Station 1 / 4 / 5)
+
+Start the server from a **token-loaded supervisor shell**, then open in browser — no Bearer header needed on loopback:
 
 ```powershell
 npm run server:command-channel
+start http://127.0.0.1:8790/tower
 ```
 
 Default bind: `http://127.0.0.1:8790`
@@ -20,19 +32,19 @@ Default bind: `http://127.0.0.1:8790`
 
 | Route | Data | Auth |
 |-------|------|------|
-| `GET /status` | **Live** Bridge Status HTML | Bearer `remote-jobs:list` |
-| `GET /status/preview` | Sample Bridge Status HTML | None |
-| `GET /status/summary` | **Live** Bridge Status JSON | Bearer `remote-jobs:list` |
-| `GET /watch` | **Live** Assistant Watcher HTML | Bearer `remote-jobs:list` |
-| `GET /watch/preview` | Sample watchlist HTML | None |
-| `GET /watch/summary` | **Live** watchlist JSON | Bearer `remote-jobs:list` |
-| `GET /tower` | **Live** Control Tower motion HTML | Bearer `remote-jobs:list` |
-| `GET /tower/preview` | Sample motion HTML | None |
-| `GET /tower/summary` | **Live** motion JSON | Bearer `remote-jobs:list` |
+| `GET /status` | **Live** Bridge Status HTML | Local loopback browser **or** Bearer `remote-jobs:list` |
+| `GET /status/preview` | **Sample** Bridge Status HTML | None |
+| `GET /status/summary` | **Live** Bridge Status JSON | Local loopback **or** Bearer |
+| `GET /watch` | **Live** Assistant Watcher HTML | Local loopback browser **or** Bearer |
+| `GET /watch/preview` | **Sample** watchlist HTML | None |
+| `GET /watch/summary` | **Live** watchlist JSON | Local loopback **or** Bearer |
+| `GET /tower` | **Live** Control Tower motion HTML | Local loopback browser **or** Bearer |
+| `GET /tower/preview` | **Sample** motion HTML | None |
+| `GET /tower/summary` | **Live** motion JSON | Local loopback **or** Bearer |
 
-Legacy long paths remain unchanged (`/joa/bridge-status`, etc.). Short aliases are equivalent wrappers — they do **not** bypass auth on live routes.
+Legacy long paths remain unchanged (`/joa/bridge-status`, etc.). Short aliases support **local live bridge** on `127.0.0.1` only. Legacy paths and non-loopback hosts still require Bearer.
 
-### Try preview routes (no token)
+### Sample preview (not live)
 
 ```powershell
 start http://127.0.0.1:8790/tower/preview
@@ -40,7 +52,7 @@ start http://127.0.0.1:8790/watch/preview
 start http://127.0.0.1:8790/status/preview
 ```
 
-### Try live routes (authenticated)
+### Live via curl (Bearer)
 
 ```powershell
 curl -H "Authorization: Bearer <token>" http://127.0.0.1:8790/tower -o tower-live.html
@@ -114,16 +126,17 @@ See [`bridge-status-ui-v0.md`](./bridge-status-ui-v0.md).
 
 | Route type | Auth |
 |------------|------|
-| `*/preview` | None — sample data only |
-| Live HTML/JSON | Bearer token with `remote-jobs:list` scope (unchanged) |
+| `*/preview` | None — **SAMPLE DATA ONLY** |
+| Live short aliases on `127.0.0.1` | Local loopback browser bridge when auth loaded in server process, **or** Bearer `remote-jobs:list` |
+| Live on non-loopback / legacy paths | Bearer `remote-jobs:list` (unchanged) |
 
-No auth settings were changed in this v0. Live job data is never public.
+Local live bridge never exposes token values in HTML, JSON, logs, or errors. No auth settings were changed in this v0.
 
 ## Remaining blockers before phone / external access
 
 | Blocker | v0 mitigation |
 |---------|----------------|
-| Server binds `127.0.0.1` only | Use preview routes on Station 1, or curl live HTML locally |
+| Server binds `127.0.0.1` only | Open `/tower` in browser after `npm run server:command-channel` |
 | Bearer header awkward on phone browser | Deploy to JuOS with session auth — see [`bridge-status-external-v0.md`](./bridge-status-external-v0.md) |
 | Short aliases not on JuOS yet | Deploy same route map when hosting command-channel |
 | No push / SMS / background wake-up | Run `/watch` or `npm run status:watch` when checking status |
@@ -135,5 +148,6 @@ No auth settings were changed in this v0. Live job data is never public.
 - External deploy: [`bridge-status-external-v0.md`](./bridge-status-external-v0.md)
 - Completion watcher: [`completion-notification-v0.md`](./completion-notification-v0.md)
 - Time sweep: [`time-aware-status-sweep-v0.md`](./time-aware-status-sweep-v0.md)
+- Local live tower: [`local-live-tower-v0.md`](./local-live-tower-v0.md)
 - Server: `scripts/server-command-channel.js`
 - Renderers: `lib/command-channel-short-status-page.js`, `lib/command-channel-bridge-status-page.js`

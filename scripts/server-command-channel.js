@@ -3,7 +3,13 @@
 const http = require("http");
 const { URL } = require("url");
 const { loadPackageVersion } = require("../lib/config");
-const { authorizeCommandChannel } = require("../lib/command-channel-auth");
+const {
+  authConfigured,
+  authorizeCommandChannel,
+  isLoopbackAddress,
+  isLoopbackHost,
+  localLiveBridgeEligible,
+} = require("../lib/command-channel-auth");
 const {
   createJob,
   getJob,
@@ -27,7 +33,29 @@ const {
   buildSampleTowerSummary,
   renderWatchHtml,
   renderTowerHtml,
+  renderLocalLiveLandingHtml,
 } = require("../lib/command-channel-short-status-page");
+
+const LOCAL_LIVE_BRIDGE_ROUTES = new Set([
+  "short-status",
+  "short-status-summary",
+  "short-watch",
+  "short-watch-summary",
+  "short-tower",
+  "short-tower-summary",
+]);
+
+const LOCAL_LIVE_HTML_ROUTES = new Set([
+  "short-status",
+  "short-watch",
+  "short-tower",
+]);
+
+const LOCAL_LIVE_ROUTE_ALIASES = {
+  "short-status": "status",
+  "short-watch": "watch",
+  "short-tower": "tower",
+};
 
 const HOST = process.env.COMMAND_CHANNEL_HOST || "127.0.0.1";
 const PORT = Number(process.env.COMMAND_CHANNEL_PORT || 8790);
@@ -215,15 +243,17 @@ async function fetchJobsForStatus(url) {
   return listJobs(buildStatusFilter(url));
 }
 
-async function buildBridgeStatusView(url) {
+async function buildBridgeStatusView(url, options = {}) {
   const jobs = await fetchJobsForStatus(url);
   const summary = buildBridgeStatusSummary(jobs, {
     backend: getBackendStatus(),
+    live_access: options.live_access,
   });
   const viewModel = buildViewModel(summary);
   const controlTower = buildTowerSummary(jobs, {
     summary,
     backend: getBackendStatus(),
+    live_access: options.live_access,
   });
   return {
     ...viewModel,
@@ -231,17 +261,19 @@ async function buildBridgeStatusView(url) {
   };
 }
 
-async function buildWatchStatusView(url) {
+async function buildWatchStatusView(url, options = {}) {
   const jobs = await fetchJobsForStatus(url);
   return buildWatchSummary(jobs, {
     backend: getBackendStatus(),
+    live_access: options.live_access,
   });
 }
 
-async function buildTowerStatusView(url) {
+async function buildTowerStatusView(url, options = {}) {
   const jobs = await fetchJobsForStatus(url);
   return buildTowerSummary(jobs, {
     backend: getBackendStatus(),
+    live_access: options.live_access,
   });
 }
 
@@ -249,16 +281,42 @@ function requireAuth(req, res, route, method) {
   const key = routeKey(route, method);
   const requiredScope = ROUTE_SCOPES[key];
   if (!requiredScope) {
-    return true;
+    return { ok: true };
   }
 
   const auth = authorizeCommandChannel(req, requiredScope);
-  if (!auth.ok) {
-    sendJson(res, auth.status, auth.body);
-    return false;
+  if (auth.ok) {
+    return { ok: true, live_access: "bearer" };
   }
 
-  return true;
+  if (
+    LOCAL_LIVE_BRIDGE_ROUTES.has(route.name) &&
+    localLiveBridgeEligible(req, requiredScope, HOST)
+  ) {
+    return { ok: true, live_access: "local_loopback" };
+  }
+
+  if (
+    method === "GET" &&
+    LOCAL_LIVE_HTML_ROUTES.has(route.name) &&
+    isLoopbackHost(HOST) &&
+    isLoopbackAddress(req.socket?.remoteAddress)
+  ) {
+    const alias = LOCAL_LIVE_ROUTE_ALIASES[route.name] || "tower";
+    const reason =
+      auth.body?.error === "auth_not_configured"
+        ? "auth_not_configured"
+        : "auth_required";
+    sendHtml(
+      res,
+      auth.status === 503 ? 503 : 401,
+      renderLocalLiveLandingHtml({ route: alias, reason })
+    );
+    return { ok: false, handled: true };
+  }
+
+  sendJson(res, auth.status, auth.body);
+  return { ok: false };
 }
 
 async function handleRequest(req, res) {
@@ -301,15 +359,19 @@ async function handleRequest(req, res) {
       return;
     }
 
-    if (!requireAuth(req, res, route, req.method)) {
+    const authResult = requireAuth(req, res, route, req.method);
+    if (!authResult.ok) {
       return;
     }
+
+    const liveAccess = authResult.live_access || "bearer";
+    const viewOptions = { live_access: liveAccess };
 
     if (
       (route.name === "joa-bridge-status" || route.name === "short-status") &&
       req.method === "GET"
     ) {
-      const viewModel = await buildBridgeStatusView(url);
+      const viewModel = await buildBridgeStatusView(url, viewOptions);
       sendHtml(res, 200, renderBridgeStatusHtml(viewModel));
       return;
     }
@@ -319,28 +381,28 @@ async function handleRequest(req, res) {
         route.name === "short-status-summary") &&
       req.method === "GET"
     ) {
-      const viewModel = await buildBridgeStatusView(url);
+      const viewModel = await buildBridgeStatusView(url, viewOptions);
       sendJson(res, 200, viewModel);
       return;
     }
 
     if (route.name === "short-watch" && req.method === "GET") {
-      sendHtml(res, 200, renderWatchHtml(await buildWatchStatusView(url)));
+      sendHtml(res, 200, renderWatchHtml(await buildWatchStatusView(url, viewOptions)));
       return;
     }
 
     if (route.name === "short-watch-summary" && req.method === "GET") {
-      sendJson(res, 200, await buildWatchStatusView(url));
+      sendJson(res, 200, await buildWatchStatusView(url, viewOptions));
       return;
     }
 
     if (route.name === "short-tower" && req.method === "GET") {
-      sendHtml(res, 200, renderTowerHtml(await buildTowerStatusView(url)));
+      sendHtml(res, 200, renderTowerHtml(await buildTowerStatusView(url, viewOptions)));
       return;
     }
 
     if (route.name === "short-tower-summary" && req.method === "GET") {
-      sendJson(res, 200, await buildTowerStatusView(url));
+      sendJson(res, 200, await buildTowerStatusView(url, viewOptions));
       return;
     }
 
@@ -434,4 +496,14 @@ server.listen(PORT, HOST, () => {
   console.log(
     `TimOS-Agent command channel listening on http://${HOST}:${PORT} (backend=${backendStatus.backend})`
   );
+  if (isLoopbackHost(HOST)) {
+    if (authConfigured()) {
+      console.log(
+        `Local live tower (browser, no Bearer): http://${HOST}:${PORT}/tower`
+      );
+    }
+    console.log(
+      `Sample preview (not live): http://${HOST}:${PORT}/tower/preview`
+    );
+  }
 });

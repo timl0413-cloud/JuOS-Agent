@@ -11,33 +11,36 @@ Read-only v0. Does **not** auto-start workers, auto-route jobs, or launch cross-
 
 ## Where to look
 
-Start the local command-channel server:
+Start the local command-channel server from a token-loaded supervisor shell:
 
 ```powershell
 npm run server:command-channel
+start http://127.0.0.1:8790/tower
 ```
 
-| Surface | Route / command | Auth |
-|---------|-----------------|------|
-| **Control Tower HTML (recommended)** | `GET /tower` | Bearer `remote-jobs:list` |
-| Preview (sample data) | `GET /tower/preview` | None |
-| Control Tower JSON | `GET /tower/summary` | Bearer `remote-jobs:list` |
-| Bridge Status JSON (includes compact block) | `GET /status/summary` | Bearer `remote-jobs:list` |
-| CLI — local store | `npm run status:tower` | None (reads local job store) |
-| CLI — hosted Supabase/JuOS | `npm run status:command-channel:control-tower` | Uses `XIAOJU_ACTION_TOKEN` |
-| CLI JSON with `control_tower` | `node scripts/command-channel-status.js --local --tower --json` | None |
+| Surface | Route / command | Data | Auth |
+|---------|-----------------|------|------|
+| **Control Tower HTML (recommended)** | `GET /tower` | **LIVE DATA** | Local loopback browser or Bearer |
+| Preview (sample only) | `GET /tower/preview` | **SAMPLE DATA ONLY** | None |
+| Control Tower JSON | `GET /tower/summary` | **LIVE DATA** | Local loopback or Bearer |
+| Bridge Status JSON (includes compact block) | `GET /status/summary` | **LIVE DATA** | Local loopback or Bearer |
+| CLI — local store | `npm run status:tower` | **LIVE DATA** | None (reads local job store) |
+| CLI — hosted Supabase/JuOS | `npm run status:command-channel:control-tower` | **LIVE DATA** | Uses server env token |
+| CLI JSON with `control_tower` | `node scripts/command-channel-status.js --local --tower --json` | **LIVE DATA** | None |
 
-Preview in browser (no token):
+See [`local-live-tower-v0.md`](./local-live-tower-v0.md) for live vs sample badges and local live bridge rules.
+
+Preview in browser (sample only — not real state):
 
 ```powershell
 start http://127.0.0.1:8790/tower/preview
 ```
 
-Live HTML (authenticated):
+Live HTML in browser (real state, no Bearer header on 127.0.0.1):
 
 ```powershell
-curl -H "Authorization: Bearer <token>" http://127.0.0.1:8790/tower -o tower-live.html
-start tower-live.html
+npm run server:command-channel
+start http://127.0.0.1:8790/tower
 ```
 
 ## Motion states
@@ -144,7 +147,7 @@ See also:
 
 | Blocker | v0 mitigation |
 |---------|----------------|
-| Server binds `127.0.0.1:8790` only | Use preview on Station 1, or curl live HTML locally |
+| Server binds `127.0.0.1:8790` only | Open `/tower` in browser — local live bridge on loopback |
 | Bearer token awkward in phone browser | Deploy to JuOS with session auth — [`bridge-status-external-v0.md`](./bridge-status-external-v0.md) |
 | `/tower` not on JuOS yet | Deploy same route map when hosting command-channel |
 | No push / SMS / background wake-up | Check `/tower` or `npm run status:tower` manually |
