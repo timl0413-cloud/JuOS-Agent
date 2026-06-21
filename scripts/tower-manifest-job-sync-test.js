@@ -8,6 +8,7 @@ const {
   parseTowerItemTags,
   jobMatchesManifestItem,
   loadTowerCurrentBatchManifest,
+  buildUnmatchedLiveJobRows,
 } = require("../lib/tower-current-batch-manifest");
 const {
   buildCurrentQueueFromManifest,
@@ -16,6 +17,7 @@ const {
   renderLiveRunningStatusCell,
   buildSampleTowerSummary,
   renderTowerHtml,
+  splitPlannedManifestRows,
   TOWER_EXECUTION_LABELS,
 } = require("../lib/command-channel-short-status-page");
 const { summarizeTimeSweep } = require("../lib/command-channel-time-sweep");
@@ -152,6 +154,13 @@ function runTests() {
       "matched row is live-linked with job id",
       row?.live_linked === true && row?.id === claimedJob.id,
       `${row?.live_linked} · ${row?.id}`
+    )
+  );
+  results.push(
+    assertCase(
+      "matched row status source is manifest + live",
+      row?.status_source === "manifest + live",
+      row?.status_source || "—"
     )
   );
   results.push(
@@ -365,7 +374,7 @@ function runTests() {
     errors: [],
   };
   const idleSummary = summarizeJobs([strandedJob]);
-  const idleTimeSummary = summarizeTimeSweep([strandedJob]);
+  const idleTimeSummary = summarizeTimeSweep([strandedJob], { nowMs: TEST_NOW_MS });
   const idleManifest = {
     batch_name: "header idle test",
     items: [
@@ -399,7 +408,8 @@ function runTests() {
   results.push(
     assertCase(
       "no live running job header says No worker running",
-      idleQueue.execution_header?.label === TOWER_EXECUTION_LABELS.NO_WORKER,
+      idleQueue.execution_header?.label === TOWER_EXECUTION_LABELS.NO_WORKER ||
+        idleQueue.execution_header?.label === TOWER_EXECUTION_LABELS.WAITING_TIM,
       idleQueue.execution_header?.label || "—"
     )
   );
@@ -412,7 +422,7 @@ function runTests() {
   );
 
   const runningSummary = summarizeJobs([claimedJob]);
-  const runningTimeSummary = summarizeTimeSweep([claimedJob]);
+  const runningTimeSummary = summarizeTimeSweep([claimedJob], { nowMs: TEST_NOW_MS });
   const runningManifest = {
     batch_name: "header running test",
     items: [manifestItem],
@@ -535,6 +545,253 @@ function runTests() {
       idleHeaderDirect.label || "—"
     )
   );
+
+  const smokeTestJob = {
+    id: "7510ed9c-fcaf-4d51-a847-f10868331ebe",
+    status: "claimed",
+    target_worker_profile: "joa",
+    repo_ref: "TimOS-Agent",
+    requested_by: "xiaoju",
+    task_type: "supervised_implement",
+    plan_summary: "Fix Tower unmatched live-job visibility",
+    prompt: "Fix Tower unmatched live-job visibility.\n\nRead-only smoke test.",
+    claimed_at: "2026-06-21T12:04:39.055Z",
+    claimed_by: "joa",
+    updated_at: "2026-06-21T12:04:45.000Z",
+    created_at: "2026-06-21T12:06:59.327+00:00",
+    approval_required: true,
+    approval_status: "approved",
+    approved_at: "2026-06-21T12:07:02.662Z",
+    errors: [],
+  };
+  const unmatchedManifest = {
+    batch_name: "unmatched live test",
+    items: [
+      {
+        order: 1,
+        key: "unrelated_item",
+        task_title: "Unrelated manifest task",
+        purpose: "No match to smoke test",
+        intended_status: "pending",
+        linked_job_ids: [],
+      },
+    ],
+  };
+  const unmatchedSummary = summarizeJobs([smokeTestJob]);
+  const unmatchedTimeSummary = summarizeTimeSweep([smokeTestJob], {
+    nowMs: unmatchedNowMs,
+  });
+  const unmatchedNowMs = Date.parse("2026-06-21T12:05:00.000Z");
+  const unmatchedQueue = buildCurrentQueueFromManifest(
+    unmatchedManifest,
+    unmatchedSummary,
+    unmatchedTimeSummary,
+    "running",
+    {
+      jobs: [smokeTestJob],
+      generated_at: "2026-06-21T12:05:00.000Z",
+      nowMs: unmatchedNowMs,
+    }
+  );
+  const unmatchedLiveRows = unmatchedQueue.live_only_rows || [];
+  const unmatchedDynamicRow = unmatchedLiveRows.find(
+    (row) => row.id === smokeTestJob.id
+  );
+  results.push(
+    assertCase(
+      "unmatched claimed job appears as dynamic live-only row",
+      unmatchedDynamicRow?.row_source === "dynamic_live" &&
+        unmatchedDynamicRow?.status_source === "command-channel live",
+      `${unmatchedDynamicRow?.row_source || "—"} · ${unmatchedDynamicRow?.status_source || "—"}`
+    )
+  );
+  results.push(
+    assertCase(
+      "unmatched claimed job is green running row",
+      unmatchedDynamicRow?.batch_state === BATCH_STATES.RUNNING &&
+        unmatchedDynamicRow?.live_linked === true,
+      `${unmatchedDynamicRow?.batch_state || "—"} · live=${unmatchedDynamicRow?.live_linked}`
+    )
+  );
+  results.push(
+    assertCase(
+      "unmatched claimed job contributes to Running header",
+      unmatchedQueue.execution_header?.label === TOWER_EXECUTION_LABELS.RUNNING,
+      unmatchedQueue.execution_header?.label || "—"
+    )
+  );
+  results.push(
+    assertCase(
+      "unmatched claimed job increments green row count",
+      unmatchedQueue.execution_header?.green_row_count === 1,
+      String(unmatchedQueue.execution_header?.green_row_count)
+    )
+  );
+  results.push(
+    assertCase(
+      "unmatched claimed job motion state is active",
+      deriveRunningMotionState(unmatchedDynamicRow, unmatchedNowMs) === "active",
+      deriveRunningMotionState(unmatchedDynamicRow, unmatchedNowMs)
+    )
+  );
+  const unmatchedRunningHtml = renderLiveRunningStatusCell(
+    unmatchedDynamicRow,
+    unmatchedNowMs
+  );
+  results.push(
+    assertCase(
+      "unmatched claimed job running cell has motion markup",
+      unmatchedRunningHtml.includes("tower-live-dot") &&
+        unmatchedRunningHtml.includes("tower-running-motion-active"),
+      unmatchedRunningHtml.slice(0, 120)
+    )
+  );
+  const unmatchedTowerHtml = renderTowerHtml({
+    data_mode: "sample",
+    swept_at: "2026-06-21T12:05:00.000Z",
+    motion: {
+      system_state: "running",
+      running_count: 1,
+      stranded_count: 0,
+      awaiting_approval_count: 0,
+      pending_or_stranded_count: 0,
+      completed_needs_review_count: 0,
+      review_history_count: 0,
+      failed_count: 0,
+      actionable_attention_count: 0,
+    },
+    running: [{ id: smokeTestJob.id, profile: "joa", title: smokeTestJob.plan_summary }],
+    next_up: { owner: "joa", action: "Finish in-progress job", job_id: smokeTestJob.id },
+    waiting_on: "joa",
+    current_focus: smokeTestJob.plan_summary,
+    lane_readiness_summary: "",
+    parallel_capacity: {},
+    lane_registry: [],
+    lanes: [],
+    activity_log: { events: [], event_count: 0 },
+    current_queue: unmatchedQueue,
+  });
+  results.push(
+    assertCase(
+      "tower HTML renders live command-channel jobs subsection",
+      unmatchedTowerHtml.includes("Live command-channel jobs") &&
+        unmatchedTowerHtml.includes("batch-live-only"),
+      "missing live subsection or batch-live-only class"
+    )
+  );
+  results.push(
+    assertCase(
+      "tower HTML renders planned batch items subsection",
+      unmatchedTowerHtml.includes("Planned Batch Items") &&
+        unmatchedTowerHtml.includes("Tower Current Batch"),
+      "missing planned batch or container heading"
+    )
+  );
+  results.push(
+    assertCase(
+      "tower HTML includes IA explainer line",
+      unmatchedTowerHtml.includes(
+        "Planned rows show the batch plan. Live command-channel jobs above show what is actually running."
+      ),
+      "missing IA explainer"
+    )
+  );
+  results.push(
+    assertCase(
+      "tower HTML does not use old parent-like batch manifest rows heading",
+      !unmatchedTowerHtml.includes("Batch manifest rows") &&
+        !unmatchedTowerHtml.includes("Tower current batch manifest (full list)"),
+      "old parent-like labels still present"
+    )
+  );
+  results.push(
+    assertCase(
+      "tower HTML includes smoke test job id in dynamic row",
+      unmatchedTowerHtml.includes(smokeTestJob.id),
+      smokeTestJob.id
+    )
+  );
+
+  const emptyLiveIndex = buildJobIndex(null, []);
+  const noLiveRows = buildUnmatchedLiveJobRows(
+    unmatchedManifest,
+    emptyLiveIndex,
+    {
+      jobIndex: emptyLiveIndex,
+      runningTooLongIds: new Set(),
+      urgentReviewIds: new Set(),
+      firstStrandedJobId: null,
+      formatBatchTaskEntry,
+      BATCH_STATES,
+    },
+    { nowMs: unmatchedNowMs }
+  );
+  results.push(
+    assertCase(
+      "no live jobs yields zero dynamic live-only rows",
+      noLiveRows.length === 0,
+      `${noLiveRows.length} row(s)`
+    )
+  );
+
+  if (manifest?.items?.length) {
+    const emptyJobIndexForSplit = buildJobIndex(null, []);
+    const allManifestDisplayRows = manifest.items.map((item) =>
+      resolveManifestItemRow(item, {
+        jobIndex: emptyJobIndexForSplit,
+        runningTooLongIds: new Set(),
+        urgentReviewIds: new Set(),
+        firstStrandedJobId: null,
+        formatBatchTaskEntry,
+        BATCH_STATES,
+      })
+    );
+    const split = splitPlannedManifestRows(allManifestDisplayRows);
+    results.push(
+      assertCase(
+        "all manifest rows remain visible after active/infrastructure split",
+        split.activePlannedRows.length + split.completedInfraRows.length ===
+          manifest.items.length,
+        `active=${split.activePlannedRows.length} infra=${split.completedInfraRows.length} total=${manifest.items.length}`
+      )
+    );
+    results.push(
+      assertCase(
+        "manifest row 7 renamed to infrastructure label",
+        manifest.items.some((item) =>
+          String(item.task_title || "").includes("Batch manifest data source")
+        ),
+        manifest.items.find((item) => item.order === 7)?.task_title || "—"
+      )
+    );
+    results.push(
+      assertCase(
+        "old parent-like manifest row title removed from config",
+        !manifest.items.some((item) =>
+          String(item.task_title || "").includes(
+            "Tower current batch manifest (full list)"
+          )
+        ),
+        manifest.items.find((item) => item.order === 7)?.task_title || "—"
+      )
+    );
+    const sampleTowerIaHtml = renderTowerHtml(buildSampleTowerSummary());
+    results.push(
+      assertCase(
+        "sample tower HTML includes distinct live and planned section labels",
+        sampleTowerIaHtml.includes("Live command-channel jobs") &&
+          sampleTowerIaHtml.includes("Planned Batch Items"),
+        "missing section labels in sample view"
+      )
+    );
+    results.push(
+      assertCase(
+        "sample tower HTML shows completed infrastructure collapsed section",
+        sampleTowerIaHtml.includes("Completed infrastructure"),
+        "missing completed infrastructure subsection"
+      )
+    );
+  }
 
   return results;
 }

@@ -73,8 +73,8 @@
     },
     {
       "order": 7,
-      "task_title": "Tower current batch manifest (full list)",
-      "purpose": "Current batch manifest — Tower lists every item in config/tower-current-batch.json in order; no fixed row cap.",
+      "task_title": "Batch manifest data source / full-list support",
+      "purpose": "Completed infrastructure — Tower reads config/tower-current-batch.json and renders every planned row in order (no fixed row cap). Not the batch container or parent task.",
       "lane": "joa-dev",
       "project": "TimOS-Agent",
       "profile": "joa",
