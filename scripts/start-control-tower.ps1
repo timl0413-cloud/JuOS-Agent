@@ -240,7 +240,7 @@ function Start-TowerWatchLoop {
 
   $watchPaths = @(Get-TowerWatchFilePaths -Root $Root | Where-Object { Test-Path $_ })
   if ($watchPaths.Count -eq 0) {
-    Write-Host "Watch mode: no watch files found — starting server once."
+    Write-Host "Watch mode: no watch files found - starting server once."
     & npm run server:command-channel
     return $LASTEXITCODE
   }
@@ -465,7 +465,7 @@ if (-not $Start) {
 
 Write-Host "Starting command-channel server (Ctrl+C to stop)..."
 if ($Watch) {
-  Write-Host "Watch mode enabled — server restarts when Tower code/config files change."
+  Write-Host "Watch mode enabled - server restarts when Tower code/config files change."
 } else {
   Write-Host "Tip: add -Watch to auto-restart after Tower code changes."
 }
