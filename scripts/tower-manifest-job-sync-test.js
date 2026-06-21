@@ -7,6 +7,7 @@ const {
   resolveManifestLinkedJob,
   parseTowerItemTags,
   jobMatchesManifestItem,
+  loadTowerCurrentBatchManifest,
 } = require("../lib/tower-current-batch-manifest");
 const { BATCH_STATES } = {
   BATCH_STATES: {
@@ -155,6 +156,105 @@ function runTests() {
       row?.status_label || "—"
     )
   );
+  results.push(
+    assertCase(
+      "matched running row status label uses Ongoing or Running",
+      /^(Ongoing|Running)/.test(String(row?.status_label || "").split(" · live")[0]),
+      row?.status_label || "—"
+    )
+  );
+
+  const emptyJobIndex = new Map();
+  const runningUnmatchedRow = resolveManifestItemRow(manifestItem, {
+    jobIndex: emptyJobIndex,
+    runningTooLongIds: new Set(),
+    urgentReviewIds: new Set(),
+    firstStrandedJobId: null,
+    formatBatchTaskEntry,
+    BATCH_STATES,
+  });
+  results.push(
+    assertCase(
+      "unmatched intended_status=running must not render green",
+      runningUnmatchedRow?.batch_state !== BATCH_STATES.RUNNING,
+      runningUnmatchedRow?.batch_state || "—"
+    )
+  );
+  results.push(
+    assertCase(
+      "unmatched intended_status=running uses blue future/next state",
+      runningUnmatchedRow?.batch_state === BATCH_STATES.FUTURE,
+      runningUnmatchedRow?.batch_state || "—"
+    )
+  );
+  results.push(
+    assertCase(
+      "unmatched intended_status=running shows Next planned label not running",
+      String(runningUnmatchedRow?.status_label || "").includes("Next") &&
+        !String(runningUnmatchedRow?.status_label || "").toLowerCase().includes("running"),
+      runningUnmatchedRow?.status_label || "—"
+    )
+  );
+
+  const manifest = loadTowerCurrentBatchManifest();
+  if (manifest?.items?.length) {
+    const allPlannedRows = manifest.items.map((item) =>
+      resolveManifestItemRow(item, {
+        jobIndex: emptyJobIndex,
+        runningTooLongIds: new Set(),
+        urgentReviewIds: new Set(),
+        firstStrandedJobId: null,
+        formatBatchTaskEntry,
+        BATCH_STATES,
+      })
+    );
+    const anyGreenWithoutLive = allPlannedRows.some(
+      (r) => r?.batch_state === BATCH_STATES.RUNNING
+    );
+    results.push(
+      assertCase(
+        "no manifest row is green when no live running jobs exist",
+        !anyGreenWithoutLive,
+        `${allPlannedRows.filter((r) => r?.batch_state === BATCH_STATES.RUNNING).length} green row(s)`
+      )
+    );
+    results.push(
+      assertCase(
+        "manifest includes all expected current-batch items (17 rows)",
+        manifest.items.length === 17,
+        `count=${manifest.items.length}`
+      )
+    );
+    const titles = manifest.items.map((i) => i.task_title);
+    results.push(
+      assertCase(
+        "manifest includes status vocabulary cleanup item",
+        titles.some((t) => t.includes("status vocabulary")),
+        titles.join("; ")
+      )
+    );
+    results.push(
+      assertCase(
+        "manifest includes stuck-green fix item",
+        titles.some((t) => t.includes("stuck-green")),
+        titles.join("; ")
+      )
+    );
+    results.push(
+      assertCase(
+        "manifest includes XiaoJu Status Context item",
+        titles.some((t) => t.includes("Status Context")),
+        titles.join("; ")
+      )
+    );
+    results.push(
+      assertCase(
+        "manifest includes Station 4/5 Taiwan-trip item",
+        titles.some((t) => t.includes("Station 4/5")),
+        titles.join("; ")
+      )
+    );
+  }
 
   const pendingManifestItem = {
     order: 99,
@@ -185,6 +285,13 @@ function runTests() {
       "unmatched manifest row shows planned status label",
       String(pendingRow?.status_label || "").includes("planned"),
       pendingRow?.status_label || "—"
+    )
+  );
+  results.push(
+    assertCase(
+      "unmatched pending row uses blue future state",
+      pendingRow?.batch_state === BATCH_STATES.FUTURE,
+      pendingRow?.batch_state || "—"
     )
   );
 

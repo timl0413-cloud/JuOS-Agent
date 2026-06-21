@@ -2,8 +2,8 @@
   "version": "v0",
   "title": "Current batch manifest",
   "batch_name": "JOA Tower + GSync activation",
-  "notes": "Authoritative current batch list for Tower. Every item in this file is shown in the Batch Task Table, sorted by order — there is no fixed row limit. Rows without a matching live command-channel job show intended_status as planned/pending/future. Rows with linked_job_ids, [tower_item:key] tags, manifest keys, or keyword matchers sync live from command-channel job state.",
-  "updated_at": "2026-06-21T10:52:00.000Z",
+  "notes": "Authoritative current batch list for Tower. Every item in this file is shown in the Batch Task Table, sorted by order — there is no fixed row limit. Planned rows (no matching live job) stay static with blue Next/Queued or yellow Waiting labels until linked. Live rows carry a · live marker and sync from command-channel job state. Green = only a matched job that is claimed/running/active.",
+  "updated_at": "2026-06-21T11:20:00.000Z",
   "items": [
     {
       "order": 1,
@@ -100,11 +100,76 @@
         "tower manifest",
         "live status sync"
       ],
-      "intended_status": "running",
+      "intended_status": "pending",
       "tim_action_note": null
     },
     {
       "order": 9,
+      "key": "tower_status_vocabulary",
+      "task_title": "Tower status vocabulary / color semantics cleanup",
+      "purpose": "Unify Tower row colors and labels: blue Next/Queued, yellow Waiting/Needs Tim, vivid green only for live running, grey Done, red Failed.",
+      "lane": "joa-dev",
+      "project": "TimOS-Agent",
+      "profile": "joa",
+      "linked_job_ids": [],
+      "matchers": [
+        "tower_status_vocabulary",
+        "status vocabulary",
+        "color semantics",
+        "stuck-green"
+      ],
+      "keywords": [
+        "tower status",
+        "stuck-green"
+      ],
+      "intended_status": "pending",
+      "tim_action_note": null
+    },
+    {
+      "order": 10,
+      "key": "tower_stuck_green_fix",
+      "task_title": "Tower live row sync / stuck-green fix",
+      "purpose": "Ensure manifest intended_status never renders green without a matched live claimed/running command-channel job.",
+      "lane": "joa-dev",
+      "project": "TimOS-Agent",
+      "profile": "joa",
+      "linked_job_ids": [],
+      "matchers": [
+        "tower_stuck_green_fix",
+        "stuck-green fix",
+        "stuck-green/live-status"
+      ],
+      "keywords": [
+        "stuck-green",
+        "live-status semantics"
+      ],
+      "intended_status": "pending",
+      "tim_action_note": null
+    },
+    {
+      "order": 11,
+      "task_title": "XiaoJu Status Context / real-time clock and deadline awareness",
+      "purpose": "System-wide status context: real-time clock, deadline awareness, and sweep timestamps so operators know how stale or urgent state is (planned — not Tower UI-only).",
+      "lane": "joa-dev",
+      "project": "TimOS-Agent",
+      "profile": "joa",
+      "linked_job_ids": [],
+      "intended_status": "pending",
+      "tim_action_note": "Design pass — coordinate with command-channel time-sweep and Tower motion block."
+    },
+    {
+      "order": 12,
+      "task_title": "Station 4/5 Taiwan-trip remote runtime readiness / always-on worker hub",
+      "purpose": "Bootstrap always-on worker hub on Station 4/5 for Taiwan-trip remote runtime — move JOA loop off Station 1 when ready.",
+      "lane": "joa-dev",
+      "project": "TimOS-Agent",
+      "profile": "joa",
+      "linked_job_ids": [],
+      "intended_status": "pending",
+      "tim_action_note": "Pending hardware/bootstrap — not auto-runnable until remote host is provisioned."
+    },
+    {
+      "order": 13,
       "task_title": "GSync room command-channel lane activation",
       "purpose": "Activate GSync room Cursor command-channel lane — re-import or inspect-only path before any juos-knowledge-vault writes.",
       "lane": "gsync-dev",
@@ -115,7 +180,7 @@
       "tim_action_note": "Approve inspect-only GSync activation job when Tower batch is stable."
     },
     {
-      "order": 10,
+      "order": 14,
       "task_title": "GSync first read-only inspect",
       "purpose": "First read-only inspect of GSync domain files — no writes until inspect_only job passes.",
       "lane": "gsync-dev",
@@ -126,7 +191,7 @@
       "tim_action_note": "Queue after Action re-import activation is approved."
     },
     {
-      "order": 11,
+      "order": 15,
       "task_title": "GSync v0 packet registry planning/build handoff",
       "purpose": "Plan and hand off GSync v0 file-based packet registry build — registry scaffold in juos-knowledge-vault gsync/** only.",
       "lane": "gsync-dev",
@@ -137,7 +202,7 @@
       "tim_action_note": "Depends on successful read-only inspect; Tim approves supervised build job."
     },
     {
-      "order": 12,
+      "order": 16,
       "task_title": "JOA batch approval queue design",
       "purpose": "Design batch approval queue so Tim can approve safe manifest rows without one-by-one job friction.",
       "lane": "joa-dev",
@@ -148,7 +213,7 @@
       "tim_action_note": "Review batch approval UX — not auto-runnable until design is approved."
     },
     {
-      "order": 13,
+      "order": 17,
       "task_title": "GSync room / cross-room memory baseline",
       "purpose": "Establish GSync room memory baseline and cross-room handoff notes for juos-knowledge-vault gsync/** lane.",
       "lane": "gsync-dev",
