@@ -40,7 +40,7 @@ function Write-Check {
   Write-Host $line
 }
 
-function Test-AuthProfileConfigured {
+function Get-AuthJsonToken {
   param(
     [string]$ProfileName,
     [string]$PlaceholderPrefix = "replace-with-"
@@ -48,52 +48,70 @@ function Test-AuthProfileConfigured {
 
   $authPath = Join-Path $RepoRoot "config\auth.json"
   if (-not (Test-Path $authPath)) {
-    return $false
+    return $null
   }
 
   try {
     $auth = Get-Content -Raw -Path $authPath | ConvertFrom-Json
     $entry = $auth.api_tokens | Where-Object { $_.name -eq $ProfileName } | Select-Object -First 1
     if (-not $entry) {
-      return $false
+      return $null
     }
     $tokenValue = [string]$entry.token
     if ([string]::IsNullOrWhiteSpace($tokenValue)) {
-      return $false
+      return $null
     }
     if ($tokenValue.StartsWith($PlaceholderPrefix)) {
-      return $false
+      return $null
     }
-    return $true
+    return @{ Value = $tokenValue }
   } catch {
-    return $false
+    return $null
   }
 }
 
-function Resolve-TokenSource {
+function Resolve-CommandChannelToken {
   param(
     [string]$EnvName,
     [string]$AuthProfileName
   )
 
-  if ([Environment]::GetEnvironmentVariable($EnvName, "Process")) {
-    return "env:$EnvName"
+  foreach ($scope in @("Process", "User", "Machine")) {
+    $value = [Environment]::GetEnvironmentVariable($EnvName, $scope)
+    if (-not [string]::IsNullOrWhiteSpace($value)) {
+      return @{
+        Value = $value
+        Source = "env:$EnvName ($scope)"
+      }
+    }
   }
 
-  if (Test-AuthProfileConfigured -ProfileName $AuthProfileName) {
-    return "auth.json:$AuthProfileName"
+  $authToken = Get-AuthJsonToken -ProfileName $AuthProfileName
+  if ($authToken) {
+    return @{
+      Value = $authToken.Value
+      Source = "auth.json:$AuthProfileName"
+    }
   }
 
   return $null
 }
 
-function Test-CommandChannelAuthConfigured {
-  $xiaojuSource = Resolve-TokenSource -EnvName "XIAOJU_ACTION_TOKEN" -AuthProfileName "xiaoju-command-channel"
-  $workerSource = Resolve-TokenSource -EnvName "WORKER_TOKEN" -AuthProfileName "cloud-readonly-worker"
+function Import-CommandChannelAuthToProcess {
+  $xiaoju = Resolve-CommandChannelToken -EnvName "XIAOJU_ACTION_TOKEN" -AuthProfileName "xiaoju-command-channel"
+  $worker = Resolve-CommandChannelToken -EnvName "WORKER_TOKEN" -AuthProfileName "cloud-readonly-worker"
+
+  if ($xiaoju -and -not [Environment]::GetEnvironmentVariable("XIAOJU_ACTION_TOKEN", "Process")) {
+    $env:XIAOJU_ACTION_TOKEN = $xiaoju.Value
+  }
+  if ($worker -and -not [Environment]::GetEnvironmentVariable("WORKER_TOKEN", "Process")) {
+    $env:WORKER_TOKEN = $worker.Value
+  }
+
   return @{
-    Configured = [bool]($xiaojuSource -and $workerSource)
-    XiaoJuSource = $xiaojuSource
-    WorkerSource = $workerSource
+    Configured = [bool]($xiaoju -and $worker)
+    XiaoJuSource = if ($xiaoju) { $xiaoju.Source } else { $null }
+    WorkerSource = if ($worker) { $worker.Source } else { $null }
   }
 }
 
@@ -230,8 +248,8 @@ if (-not (Test-Path $serverScript)) {
 }
 Write-Check -Name "Command channel server" -Passed $true -Detail "scripts/server-command-channel.js"
 
-# Auth in this shell (what a server started here would see)
-$authState = Test-CommandChannelAuthConfigured
+# Load auth from Process/User/Machine env or auth.json into this process for the server child.
+$authState = Import-CommandChannelAuthToProcess
 if ($authState.Configured) {
   Write-Check -Name "Auth in this shell" -Passed $true -Detail ("xiaoju via {0}; worker via {1}" -f $authState.XiaoJuSource, $authState.WorkerSource)
   $expectedIfStartedHere = "LIVE DATA"
@@ -280,8 +298,9 @@ if ($listeners.Count -gt 0) {
         Write-Host "Server already running, but live bridge is not active in that process."
         Write-Host "Open: $TowerUrl"
         Write-Host "Expected browser result: SETUP REQUIRED (setup landing page)"
-        Write-Host "Fix: stop that server and restart from a token-loaded supervisor shell in this repo."
-        Write-Host "     Use -ForceStop only if you are sure nothing important owns port $Port."
+        Write-Host "Fix: stop that server and restart so auth loads into the server process."
+        Write-Host "     Example: .\scripts\start-control-tower.ps1 -Start -ForceStop -OpenBrowser"
+        Write-Host "     Auth may live in User/Machine env or config\auth.json; this script copies found values into the server process without printing them."
       }
       default {
         Write-Host ""
@@ -330,8 +349,8 @@ if (-not $Start) {
   Write-Host "Then open: $TowerUrl"
   if ($expectedIfStartedHere -eq "SETUP REQUIRED") {
     Write-Host ""
-    Write-Host "Auth is missing in this shell - browser will show SETUP REQUIRED until you restart"
-    Write-Host "from a token-loaded supervisor shell (do not paste tokens into chat)."
+    Write-Host "Auth is missing from Process/User/Machine env and config\auth.json - browser will show SETUP REQUIRED."
+    Write-Host "Configure tokens in Windows User env or config\auth.json (do not paste tokens into chat)."
   }
   exit 0
 }
