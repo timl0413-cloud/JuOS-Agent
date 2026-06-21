@@ -2,8 +2,8 @@
   "version": "v0",
   "title": "Current batch manifest",
   "batch_name": "JOA Tower + GSync activation",
-  "notes": "Authoritative current batch list for Tower. Every item in this file is shown in the Batch Task Table, sorted by order — there is no fixed row limit. Rows without linked command-channel jobs use intended_status (pending, needs Tim, blocked) until Tim approves a supervised job.",
-  "updated_at": "2026-06-21T10:44:00.000Z",
+  "notes": "Authoritative current batch list for Tower. Every item in this file is shown in the Batch Task Table, sorted by order — there is no fixed row limit. Rows without a matching live command-channel job show intended_status as planned/pending/future. Rows with linked_job_ids, [tower_item:key] tags, manifest keys, or keyword matchers sync live from command-channel job state.",
+  "updated_at": "2026-06-21T10:52:00.000Z",
   "items": [
     {
       "order": 1,
@@ -84,6 +84,27 @@
     },
     {
       "order": 8,
+      "key": "tower_manifest_job_sync",
+      "task_title": "Tower manifest/job live status sync",
+      "purpose": "Let Tower table rows change from pending to ongoing/completed/failed as worker jobs move through command-channel state",
+      "lane": "joa-dev",
+      "project": "TimOS-Agent",
+      "profile": "joa",
+      "linked_job_ids": [],
+      "matchers": [
+        "tower_manifest_job_sync",
+        "Tower manifest/job live status sync",
+        "manifest/job live status"
+      ],
+      "keywords": [
+        "tower manifest",
+        "live status sync"
+      ],
+      "intended_status": "running",
+      "tim_action_note": null
+    },
+    {
+      "order": 9,
       "task_title": "GSync room command-channel lane activation",
       "purpose": "Activate GSync room Cursor command-channel lane — re-import or inspect-only path before any juos-knowledge-vault writes.",
       "lane": "gsync-dev",
@@ -94,7 +115,7 @@
       "tim_action_note": "Approve inspect-only GSync activation job when Tower batch is stable."
     },
     {
-      "order": 9,
+      "order": 10,
       "task_title": "GSync first read-only inspect",
       "purpose": "First read-only inspect of GSync domain files — no writes until inspect_only job passes.",
       "lane": "gsync-dev",
@@ -105,7 +126,7 @@
       "tim_action_note": "Queue after Action re-import activation is approved."
     },
     {
-      "order": 10,
+      "order": 11,
       "task_title": "GSync v0 packet registry planning/build handoff",
       "purpose": "Plan and hand off GSync v0 file-based packet registry build — registry scaffold in juos-knowledge-vault gsync/** only.",
       "lane": "gsync-dev",
@@ -116,7 +137,7 @@
       "tim_action_note": "Depends on successful read-only inspect; Tim approves supervised build job."
     },
     {
-      "order": 11,
+      "order": 12,
       "task_title": "JOA batch approval queue design",
       "purpose": "Design batch approval queue so Tim can approve safe manifest rows without one-by-one job friction.",
       "lane": "joa-dev",
@@ -127,7 +148,7 @@
       "tim_action_note": "Review batch approval UX — not auto-runnable until design is approved."
     },
     {
-      "order": 12,
+      "order": 13,
       "task_title": "GSync room / cross-room memory baseline",
       "purpose": "Establish GSync room memory baseline and cross-room handoff notes for juos-knowledge-vault gsync/** lane.",
       "lane": "gsync-dev",
