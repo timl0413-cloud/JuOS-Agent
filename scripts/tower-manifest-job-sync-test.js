@@ -258,7 +258,7 @@ async function runTests() {
   results.push(
     assertCase(
       "matched manifest row includes linked job hint",
-      row?.link_hint === `Linked job: ${claimedJob.id}`,
+      row?.link_hint === `Linked job: ${claimedJob.id.slice(0, 8)}`,
       row?.link_hint || "—"
     )
   );
@@ -550,7 +550,7 @@ async function runTests() {
         lanes: [],
         activity_log: { events: [], event_count: 0 },
         current_queue: idleQueue,
-      }).includes("tower-running-motion-active"),
+      }).includes("batch-running-motion-active"),
       "unexpected active motion on idle view"
     )
   );
@@ -696,10 +696,10 @@ async function runTests() {
   });
   results.push(
     assertCase(
-      "tower HTML renders live command-channel jobs inline when present",
-      unmatchedTowerHtml.includes("Live command-channel jobs") &&
-        unmatchedTowerHtml.includes("batch-live-only"),
-      "missing live subsection or batch-live-only class"
+      "tower HTML renders unmatched live jobs in main planned table",
+      unmatchedTowerHtml.includes("batch-live-only") &&
+        !unmatchedTowerHtml.includes("Live command-channel jobs"),
+      "dynamic rows should be in main table, not a separate live section"
     )
   );
   results.push(
@@ -834,10 +834,9 @@ async function runTests() {
     const sampleTowerIaHtml = renderTowerHtml(buildSampleTowerSummary());
     results.push(
       assertCase(
-        "sample tower HTML includes distinct live and planned section labels",
-        sampleTowerIaHtml.includes("Live command-channel jobs") &&
-          sampleTowerIaHtml.includes("Planned Batch Items"),
-        "missing section labels in sample view"
+        "sample tower HTML includes planned batch section label",
+        sampleTowerIaHtml.includes("Planned Batch Items"),
+        "missing planned batch section label in sample view"
       )
     );
     results.push(
@@ -957,8 +956,8 @@ async function runTests() {
   );
   results.push(
     assertCase(
-      "unmatched pending/approved job shows Queued / pending live label",
-      String(approvedRow?.status_label || "").includes("Queued / pending live"),
+      "unmatched pending/approved job shows Pending live label",
+      String(approvedRow?.status_label || "") === "Pending live",
       approvedRow?.status_label || "—"
     )
   );
@@ -1222,6 +1221,8 @@ function printResults(results) {
   return failed;
 }
 
-const results = await runTests();
-const failed = printResults(results);
-process.exit(failed > 0 ? 1 : 0);
+(async () => {
+  const results = await runTests();
+  const failed = printResults(results);
+  process.exit(failed > 0 ? 1 : 0);
+})();
