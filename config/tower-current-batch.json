@@ -1,0 +1,117 @@
+{
+  "version": "v0",
+  "batch_name": "JOA Tower + GSync activation",
+  "updated_at": "2026-06-21T10:40:00.000Z",
+  "items": [
+    {
+      "order": 1,
+      "task_title": "Tower Activity Log",
+      "purpose": "Secondary activity timeline from command-channel job events — history without crowding the batch table.",
+      "lane": "joa-dev",
+      "project": "TimOS-Agent",
+      "profile": "joa",
+      "linked_job_ids": [],
+      "intended_status": "done",
+      "tim_action_note": null
+    },
+    {
+      "order": 2,
+      "task_title": "Tower Current Queue / Needs Tim",
+      "purpose": "Surface current queue, needs-Tim items, and idle state so Tim sees what needs action now.",
+      "lane": "joa-dev",
+      "project": "TimOS-Agent",
+      "profile": "joa",
+      "linked_job_ids": [],
+      "intended_status": "done",
+      "tim_action_note": null
+    },
+    {
+      "order": 3,
+      "task_title": "Tower Launcher parser fix",
+      "purpose": "Fix start-control-tower.ps1 parsing so Tower launcher diagnoses port/auth without false failures.",
+      "lane": "joa-dev",
+      "project": "TimOS-Agent",
+      "profile": "joa",
+      "linked_job_ids": [],
+      "intended_status": "done",
+      "tim_action_note": null
+    },
+    {
+      "order": 4,
+      "task_title": "Tower auth loading fix",
+      "purpose": "Serve setup landing or live bridge correctly when auth is missing vs loaded in the server process.",
+      "lane": "joa-dev",
+      "project": "TimOS-Agent",
+      "profile": "joa",
+      "linked_job_ids": [],
+      "intended_status": "done",
+      "tim_action_note": null
+    },
+    {
+      "order": 5,
+      "task_title": "Tower Needs Attention cleanup",
+      "purpose": "Split urgent review from review history so older completed jobs do not inflate actionable attention.",
+      "lane": "joa-dev",
+      "project": "TimOS-Agent",
+      "profile": "joa",
+      "linked_job_ids": [],
+      "intended_status": "done",
+      "tim_action_note": null
+    },
+    {
+      "order": 6,
+      "task_title": "Tower single Batch Task Table",
+      "purpose": "One primary batch table with task, purpose, status, and Tim-action column instead of scattered queue blocks.",
+      "lane": "joa-dev",
+      "project": "TimOS-Agent",
+      "profile": "joa",
+      "linked_job_ids": [],
+      "intended_status": "done",
+      "tim_action_note": null
+    },
+    {
+      "order": 7,
+      "task_title": "Tower current batch manifest v0",
+      "purpose": "Explicit manifest so Tower shows the full planned batch, not only a capped recent-job reconstruction.",
+      "lane": "joa-dev",
+      "project": "TimOS-Agent",
+      "profile": "joa",
+      "linked_job_ids": [],
+      "intended_status": "running",
+      "tim_action_note": "Review manifest rows and approve follow-on GSync activation jobs when ready."
+    },
+    {
+      "order": 8,
+      "task_title": "GSync Action re-import / inspect activation",
+      "purpose": "Re-import or inspect GSync Action activation path so juos-knowledge-vault lane can be exercised safely.",
+      "lane": "gsync-dev",
+      "project": "juos-knowledge-vault",
+      "profile": "gsync",
+      "linked_job_ids": [],
+      "intended_status": "pending",
+      "tim_action_note": "Approve inspect-only GSync activation job when Tower batch is stable."
+    },
+    {
+      "order": 9,
+      "task_title": "GSync first read-only inspect",
+      "purpose": "First read-only inspect of GSync domain files — no writes until inspect_only job passes.",
+      "lane": "gsync-dev",
+      "project": "juos-knowledge-vault",
+      "profile": "gsync",
+      "linked_job_ids": [],
+      "intended_status": "pending",
+      "tim_action_note": "Queue after Action re-import activation is approved."
+    },
+    {
+      "order": 10,
+      "task_title": "GSync v0 packet registry planning/build handoff",
+      "purpose": "Plan and hand off GSync v0 packet registry build — registry scaffold in juos-knowledge-vault gsync/** only.",
+      "lane": "gsync-dev",
+      "project": "juos-knowledge-vault",
+      "profile": "gsync",
+      "linked_job_ids": [],
+      "intended_status": "pending",
+      "tim_action_note": "Depends on successful read-only inspect; Tim approves supervised build job."
+    }
+  ]
+}
