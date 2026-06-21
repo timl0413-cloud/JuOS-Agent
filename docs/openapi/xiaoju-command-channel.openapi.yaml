@@ -7,14 +7,11 @@ info:
     XiaoJu creates read-only remote jobs and polls results.
     Does NOT include worker claim/result, approve, run, or operator endpoints.
 
-    Use XIAOJU_ACTION_TOKEN bearer auth only.
-  version: 0.9.1
-  description: |
-    No-paste command channel for XiaoJu GPT Action.
-
-    Create and read remote jobs only. Worker claim/result endpoints are internal.
     Deployed coordinator uses Supabase durable storage (COMMAND_CHANNEL_BACKEND=supabase).
     Local tests may use filesystem backend.
+
+    Use XIAOJU_ACTION_TOKEN bearer auth only.
+  version: 0.9.2
 
 servers:
   - url: https://YOUR-COORDINATOR-URL
@@ -41,15 +38,33 @@ paths:
     post:
       operationId: createRemoteJob
       summary: Create a read-only remote job
-      description: |
-        Creates a remote job for cloud-readonly worker execution.
-        Only inspect_only and summarize_repo with risk_level low are accepted.
+      description: Creates a read-only remote job. Routes cloud-readonly snapshot repos (inspect_only/summarize_repo) or gsync juos-knowledge-vault (inspect_only). risk_level must be low.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: "#/components/schemas/CreateRemoteJobRequest"
+            examples:
+              cloudReadonlyInspect:
+                summary: Cloud-readonly snapshot inspect
+                value:
+                  repo_ref: timos-agent-snapshot
+                  task_type: inspect_only
+                  risk_level: low
+                  requested_by: xiaoju
+                  target_worker_profile: cloud-readonly
+                  prompt: Inspect repository structure from snapshot. Do not modify files.
+              gsyncInspect:
+                summary: GSync juos-knowledge-vault inspect
+                value:
+                  requested_by: gsync
+                  target_worker_profile: gsync
+                  repo_ref: juos-knowledge-vault
+                  workspace_ref: "C:\\projects\\juos-knowledge-vault"
+                  task_type: inspect_only
+                  risk_level: low
+                  prompt: Read-only inspect of workspace connectivity and gsync/ layout. Do not modify files.
       responses:
         "201":
           description: Job created
@@ -86,7 +101,8 @@ paths:
           in: query
           schema:
             type: string
-            example: cloud-readonly
+            enum: [cloud-readonly, gsync]
+          example: cloud-readonly
       responses:
         "200":
           description: Job list
@@ -183,26 +199,31 @@ components:
       properties:
         repo_ref:
           type: string
+          description: Snapshot id for cloud-readonly, or juos-knowledge-vault for gsync.
           example: timos-agent-snapshot
         workspace_ref:
           type: string
           nullable: true
+          description: Required for gsync (C:\projects\juos-knowledge-vault). Optional for cloud-readonly.
           example: TimOS-Agent
         task_type:
           type: string
           enum: [inspect_only, summarize_repo]
+          description: gsync accepts inspect_only only; cloud-readonly accepts both.
         risk_level:
           type: string
           enum: [low]
         requested_by:
           type: string
+          description: Audit id for the requesting room (e.g. xiaoju or gsync).
           example: xiaoju
         prompt:
           type: string
           example: Inspect this repository and summarize structure. Do not modify files.
         target_worker_profile:
           type: string
-          description: Must be cloud-readonly if set
+          enum: [cloud-readonly, gsync]
+          description: Worker route. Omit or cloud-readonly for snapshots; gsync for juos-knowledge-vault inspect_only.
           example: cloud-readonly
 
     RemoteJob:
@@ -226,6 +247,7 @@ components:
           type: string
         target_worker_profile:
           type: string
+          enum: [cloud-readonly, gsync]
           example: cloud-readonly
         repo_ref:
           type: string
