@@ -525,6 +525,29 @@ async function runTests() {
   );
   results.push(
     assertCase(
+      "sample tower HTML includes mobile viewport meta",
+      sampleTowerHtml.includes("width=device-width") &&
+        sampleTowerHtml.includes("initial-scale=1"),
+      "missing viewport meta"
+    )
+  );
+  results.push(
+    assertCase(
+      "sample tower HTML includes narrow-screen media query",
+      sampleTowerHtml.includes("@media (max-width: 640px)"),
+      "missing mobile media query"
+    )
+  );
+  results.push(
+    assertCase(
+      "sample tower HTML marks de-emphasized batch columns for narrow screens",
+      sampleTowerHtml.includes("col-hide-narrow") &&
+        sampleTowerHtml.includes("batch-task-table"),
+      "missing narrow column classes"
+    )
+  );
+  results.push(
+    assertCase(
       "idle queue HTML has no live running motion badge",
       !renderTowerHtml({
         data_mode: "sample",
