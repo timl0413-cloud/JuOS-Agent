@@ -1,0 +1,223 @@
+{
+  "$schema_note": "Documentation scaffold only. Copy to room-lanes.json after Tim approval. Not read by runtime in v0.",
+  "version": "0.1.0",
+  "updated": "2026-06-21",
+  "registry_principle": "Room identity (source_room) is separate from execution (active_lane, target_worker_profile, repo_ref, workspace_ref). Rooms must not impersonate JOA.",
+  "lanes": [
+    {
+      "room_id": "joa",
+      "display_name": "JOA — JuOS Agent / TimOS development",
+      "source_room": "JOA",
+      "active_lane": "joa-dev",
+      "allowed_worker_profiles": ["joa"],
+      "repo_ref": "TimOS-Agent",
+      "workspace_ref": "C:\\projects\\TimOS-Agent",
+      "allowed_paths": [
+        "docs/",
+        "lib/",
+        "scripts/",
+        "config/*.example.json",
+        "templates/",
+        "gsync/"
+      ],
+      "forbidden_paths": [
+        "config/auth.json",
+        "config/runtime.json",
+        "config/workers.json",
+        ".env",
+        "production deploy settings"
+      ],
+      "status_surface": "GET /joa/bridge-status; scripts/command-channel-status.js; templates/command-channel/status-packet.md",
+      "handoff_packet_template": "templates/command-channel/status-packet.md",
+      "lane_status": "active",
+      "guardrails": [
+        "Primary TimOS-Agent development lane; do not route all other rooms through JOA identity",
+        "No commit/push/deploy unless Tim explicitly approves in job payload",
+        "No new worker profiles without Tim approval"
+      ]
+    },
+    {
+      "room_id": "jub",
+      "display_name": "JUB / OB — JuOS Unified Board & Operation Board",
+      "source_room": "JUB",
+      "active_lane": "jub-coordination",
+      "allowed_worker_profiles": [],
+      "repo_ref": null,
+      "workspace_ref": null,
+      "allowed_paths": [
+        "gsync/packets/",
+        "gsync/registry/",
+        "docs/"
+      ],
+      "forbidden_paths": [
+        "Direct worker execution as JOA",
+        "TimOS or OB database writes without authorized routes",
+        "Auto-routing between rooms"
+      ],
+      "status_surface": "gsync/registry/packet-index.yaml; gsync/registry/freshness.yaml",
+      "handoff_packet_template": "gsync/templates/packet-template.md",
+      "lane_status": "pending",
+      "guardrails": [
+        "JUB publishes boundaries and decisions to GSync; not a general-purpose worker",
+        "Must not impersonate JOA for development work",
+        "OB direct-action routes blocked until auth resolved — see gsync packet 2026-06-19_005"
+      ]
+    },
+    {
+      "room_id": "gsync",
+      "display_name": "GSync — cross-room packet registry",
+      "source_room": "GSync",
+      "active_lane": "gsync-registry",
+      "allowed_worker_profiles": ["jucore"],
+      "repo_ref": "JuCore",
+      "workspace_ref": "C:\\projects\\JuCore",
+      "allowed_paths": [
+        "gsync/",
+        "C:\\projects\\JuCore/**"
+      ],
+      "forbidden_paths": [
+        "Raw chat ingestion",
+        "Auto-routing without Tim approval",
+        "DB backend or worker auto-claim changes from registry docs"
+      ],
+      "status_surface": "gsync/README.md; gsync/registry/",
+      "handoff_packet_template": "gsync/templates/packet-template.md",
+      "lane_status": "active",
+      "guardrails": [
+        "Accepted packets only; handoff by packet ID not transcript",
+        "Command-channel jobs use target_worker_profile jucore when JuCore hub is running",
+        "Must declare source_room GSync; never present as JOA"
+      ]
+    },
+    {
+      "room_id": "novabridge",
+      "display_name": "NB / NovaBridge — Nova universe development",
+      "source_room": "NovaBridge",
+      "active_lane": "nova-dev",
+      "allowed_worker_profiles": ["nova"],
+      "repo_ref": "NovaUniverse",
+      "workspace_ref": "C:\\projects\\NovaUniverse",
+      "allowed_paths": [
+        "C:\\projects\\NovaUniverse/**"
+      ],
+      "forbidden_paths": [
+        "TimOS-Agent command-channel runtime changes unless scoped job",
+        "Gameplay, Three.js/R3F, event bus, or canon content without explicit task",
+        "Impersonating JOA for Nova work"
+      ],
+      "status_surface": "Bridge status filtered by profile=nova; status packet with source_room NovaBridge",
+      "handoff_packet_template": "templates/command-channel/status-packet.md",
+      "lane_status": "pending",
+      "guardrails": [
+        "Nova worker profile exists; room lane opening requires Tim approval and Room Identity Card",
+        "Jobs must set requested_by to novabridge or NB alias documented in identity card",
+        "Fallback via JOA bridge must declare source_room NovaBridge and joa bridge fallback"
+      ]
+    },
+    {
+      "room_id": "jex",
+      "display_name": "JEX — XJu Ex handoff lane",
+      "source_room": "JEX",
+      "active_lane": "jex-handoff",
+      "allowed_worker_profiles": [],
+      "repo_ref": null,
+      "workspace_ref": null,
+      "allowed_paths": [
+        "gsync/packets/accepted/"
+      ],
+      "forbidden_paths": [
+        "Direct command-channel worker claim without profile approval",
+        "Impersonating JOA or GSync"
+      ],
+      "status_surface": "gsync/registry/routes.yaml (gsync-to-jex route)",
+      "handoff_packet_template": "gsync/templates/packet-template.md",
+      "lane_status": "pending",
+      "guardrails": [
+        "Receives GSync handoff summaries and blockers only until execution lane is opened",
+        "No worker profile enabled in v0"
+      ]
+    },
+    {
+      "room_id": "spacea",
+      "display_name": "SpaceA — client project bridge",
+      "source_room": "SpaceA",
+      "active_lane": "spacea-bridge",
+      "allowed_worker_profiles": ["spacea"],
+      "repo_ref": "per job (STUF, Kenkoup, Primoo, _ClientOps)",
+      "workspace_ref": "per job — see config/workspace-targets.json",
+      "allowed_paths": [
+        "C:\\projects\\SpaceA\\STUF-Website",
+        "C:\\projects\\SpaceA\\Kenkoup",
+        "C:\\projects\\SpaceA\\Primoo",
+        "C:\\projects\\SpaceA\\_ClientOps"
+      ],
+      "forbidden_paths": [
+        "C:\\projects\\SpaceA (parent folder)",
+        "GospelFilm (MinistryOps only)",
+        "Billing-driven workspace classification"
+      ],
+      "status_surface": "Bridge status profile=spacea; config/workspace-targets.json",
+      "handoff_packet_template": "templates/command-channel/status-packet.md",
+      "lane_status": "active",
+      "guardrails": [
+        "Multi-target bridge; every job must specify repo_ref and workspace_ref",
+        "Admin _ClientOps requires work_purpose",
+        "Must declare source_room SpaceA; not JOA"
+      ]
+    },
+    {
+      "room_id": "ministryops",
+      "display_name": "MinistryOps — ministry project bridge",
+      "source_room": "MinistryOps",
+      "active_lane": "ministry-bridge",
+      "allowed_worker_profiles": ["ministry"],
+      "repo_ref": "per job (IMPACT, BETHANY, GFPF, GospelFilm, _MinistryOps)",
+      "workspace_ref": "per job — see config/workspace-targets.json",
+      "allowed_paths": [
+        "C:\\projects\\MinistryOps\\IMPACT",
+        "C:\\projects\\MinistryOps\\BETHANY",
+        "C:\\projects\\MinistryOps\\GFPF",
+        "C:\\projects\\MinistryOps\\GospelFilm",
+        "C:\\projects\\MinistryOps\\_MinistryOps"
+      ],
+      "forbidden_paths": [
+        "C:\\projects\\MinistryOps (parent folder)",
+        "Private member data",
+        "Financial records without approval"
+      ],
+      "status_surface": "Bridge status profile=ministry; config/workspace-targets.json",
+      "handoff_packet_template": "templates/command-channel/status-packet.md",
+      "lane_status": "active",
+      "guardrails": [
+        "GospelFilm belongs under MinistryOps only",
+        "Multi-target bridge; job payload defines execution target",
+        "Must declare source_room MinistryOps"
+      ]
+    },
+    {
+      "room_id": "finance",
+      "display_name": "Finance / JFA — TimFinance lane",
+      "source_room": "JFA",
+      "active_lane": "finance-dev",
+      "allowed_worker_profiles": ["finance"],
+      "repo_ref": "TimFinance",
+      "workspace_ref": "C:\\projects\\TimFinance",
+      "allowed_paths": [
+        "C:\\projects\\TimFinance/**"
+      ],
+      "forbidden_paths": [
+        "TimOS-Agent runtime unless cross-repo task explicitly scoped",
+        "Production financial integrations without Tim approval",
+        "Impersonating JOA for Finance work"
+      ],
+      "status_surface": "Bridge status profile=finance; status packet with source_room JFA",
+      "handoff_packet_template": "templates/command-channel/status-packet.md",
+      "lane_status": "active",
+      "guardrails": [
+        "Finance worker hub must be running for claim",
+        "Jobs use target_worker_profile finance",
+        "Room identity is JFA; execution profile is finance"
+      ]
+    }
+  ]
+}

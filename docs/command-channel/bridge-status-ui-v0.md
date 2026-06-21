@@ -1,0 +1,91 @@
+# Bridge Status Interface v0
+
+Read-only command-channel and worker bridge visibility for Travel Mode. Tim can see stranded, running, completed, and failed jobs without CLI.
+
+## Surfaces
+
+| Surface | Data | How to open |
+|---------|------|-------------|
+| Static mock (legacy) | Sample | `docs/command-channel/bridge-status-ui-v0.html` |
+| API preview route | Sample | `http://127.0.0.1:8790/joa/bridge-status/preview` (after `npm run server:command-channel`) |
+| API live route | **Live** | `GET /joa/bridge-status` with Bearer `remote-jobs:list` |
+| API live JSON | **Live** | `GET /joa/bridge-status/summary` with Bearer `remote-jobs:list` |
+
+External MacBook/phone path: see [`bridge-status-external-v0.md`](./bridge-status-external-v0.md).
+
+## View the static mock (local file)
+
+Open in a browser:
+
+```
+C:\projects\TimOS-Agent\docs\command-channel\bridge-status-ui-v0.html
+```
+
+Or from repo root:
+
+```powershell
+start docs\command-channel\bridge-status-ui-v0.html
+```
+
+## View via command-channel server
+
+```powershell
+npm run server:command-channel
+start http://127.0.0.1:8790/joa/bridge-status/preview
+```
+
+Live data (authenticated):
+
+```powershell
+curl -H "Authorization: Bearer <token>" http://127.0.0.1:8790/joa/bridge-status -o bridge-status-live.html
+```
+
+## Sections
+
+| Section | Purpose |
+|---------|---------|
+| Bridge summary | Counts: stranded, running, completed-needs-notification, failed/blocked |
+| Stranded jobs | Approved + pending + unclaimed — includes recovery command |
+| Running jobs | Claimed workers — do not assume completion |
+| Completed needs notification | Finished jobs where room post is still required |
+| Failed or blocked | Errors and next owner |
+| Operating rules | approved ≠ running; pending ≠ handled; completed ≠ notified |
+| Travel Mode readiness | Mobile-readable layout note; Station 4/5 workers later |
+
+## Status mapping (from no-stranded-job v0)
+
+| UI bucket | Status layer category | Detection |
+|-----------|----------------------|-----------|
+| Stranded | `pending_unclaimed` | `status=pending`, approved, `claimed_at` null |
+| Running | `claimed_running` | `status=claimed` |
+| Completed needs notification | `completed` | `status=completed` — verify room notified |
+| Failed or blocked | `failed_or_blocked` | `failed`, `cancelled`, or blocked state |
+
+See [`no-stranded-job-v0.md`](./no-stranded-job-v0.md) for CLI and recovery details.
+
+## Sample data notes
+
+The static HTML file uses illustrative jobs. The `/joa/bridge-status/preview` route serves the same sample shape via HTTP.
+
+Live routes read from the command-channel store (filesystem local or Supabase when deployed). Refresh the live page to update; no client-side token or fetch.
+
+## Intentionally not implemented
+
+- Browser session auth (JuOS deploy — see external v0 doc)
+- Auto-claim, auto-routing, or worker behavior changes
+- Notification ledger (cannot detect if room already notified)
+- Auth/token changes or public live job data
+- Station 4/5 worker panels
+
+## Recommended next step (external Travel Mode)
+
+1. Deploy `/joa/bridge-status` to JuOS with session auth — see [`bridge-status-external-v0.md`](./bridge-status-external-v0.md).
+2. Optional: meta-refresh or polling on the JuOS-hosted page.
+3. Optional: notification ledger to hide completed rows after room post.
+
+## Related
+
+- Status CLI: `scripts/command-channel-status.js`
+- Room packet template: [`templates/command-channel/status-packet.md`](../../templates/command-channel/status-packet.md)
+- Room / lane registry: [`room-lane-identity-v0.md`](./room-lane-identity-v0.md) — `source_room`, `active_lane`
+- Bridge overview: [`docs/bridge/xiaoju-command-channel.md`](../bridge/xiaoju-command-channel.md)

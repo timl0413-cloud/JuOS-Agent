@@ -18,6 +18,7 @@
     "smoke:cloud-readonly": "node scripts/cloud-readonly-worker-smoke-test.js",
     "smoke:command-channel": "node scripts/command-channel-smoke-test.js",
     "server:command-channel": "node scripts/server-command-channel.js",
+    "status:command-channel": "node scripts/command-channel-status.js",
     "worker:command-channel-once": "node scripts/command-channel-worker.js --once --allow-lane",
     "test:command-channel-supabase-contract": "node scripts/command-channel-supabase-contract-test.js",
     "worker:nova-reading:job": "node scripts/command-channel-worker.js --http --once --worker-profile nova-reading --job-id",

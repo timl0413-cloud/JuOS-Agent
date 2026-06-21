@@ -14,6 +14,12 @@ const {
   assertBackendReady,
 } = require("../lib/command-channel-store");
 const { DEFAULT_WORKER_PROFILE } = require("../lib/command-channel-core");
+const {
+  buildSampleSummary,
+  buildBridgeStatusSummary,
+  buildViewModel,
+  renderBridgeStatusHtml,
+} = require("../lib/command-channel-bridge-status-page");
 
 const HOST = process.env.COMMAND_CHANNEL_HOST || "127.0.0.1";
 const PORT = Number(process.env.COMMAND_CHANNEL_PORT || 8790);
@@ -24,6 +30,8 @@ const ROUTE_SCOPES = {
   "remote-job-item-GET": "remote-jobs:read",
   "worker-jobs-next-GET": "remote-jobs:claim",
   "worker-job-result-POST": "remote-jobs:result",
+  "joa-bridge-status-GET": "remote-jobs:list",
+  "joa-bridge-status-summary-GET": "remote-jobs:list",
 };
 
 function sendJson(res, statusCode, body) {
@@ -38,6 +46,16 @@ function sendJson(res, statusCode, body) {
 function sendNoContent(res) {
   res.writeHead(204);
   res.end();
+}
+
+function sendHtml(res, statusCode, body) {
+  const payload = String(body);
+  res.writeHead(statusCode, {
+    "Content-Type": "text/html; charset=utf-8",
+    "Content-Length": Buffer.byteLength(payload),
+    "Cache-Control": "no-store",
+  });
+  res.end(payload);
 }
 
 function readJsonBody(req) {
@@ -76,6 +94,32 @@ function parseRoute(urlPath) {
     return { name: "health" };
   }
 
+  if (
+    parts.length === 2 &&
+    parts[0] === "joa" &&
+    parts[1] === "bridge-status"
+  ) {
+    return { name: "joa-bridge-status" };
+  }
+
+  if (
+    parts.length === 3 &&
+    parts[0] === "joa" &&
+    parts[1] === "bridge-status" &&
+    parts[2] === "preview"
+  ) {
+    return { name: "joa-bridge-status-preview" };
+  }
+
+  if (
+    parts.length === 3 &&
+    parts[0] === "joa" &&
+    parts[1] === "bridge-status" &&
+    parts[2] === "summary"
+  ) {
+    return { name: "joa-bridge-status-summary" };
+  }
+
   if (parts.length === 1 && parts[0] === "remote-jobs") {
     return { name: "remote-jobs-collection" };
   }
@@ -106,10 +150,28 @@ function parseRoute(urlPath) {
 }
 
 function routeKey(route, method) {
-  if (route.name === "health" || route.name === "not-found") {
+  if (
+    route.name === "health" ||
+    route.name === "not-found" ||
+    route.name === "joa-bridge-status-preview"
+  ) {
     return route.name;
   }
   return `${route.name}-${method}`;
+}
+
+async function buildBridgeStatusView(url) {
+  const filter = {
+    target_worker_profile:
+      url.searchParams.get("profile") || undefined,
+    status: url.searchParams.get("status") || undefined,
+    requested_by: url.searchParams.get("requested_by") || undefined,
+  };
+  const jobs = await listJobs(filter);
+  const summary = buildBridgeStatusSummary(jobs, {
+    backend: getBackendStatus(),
+  });
+  return buildViewModel(summary);
 }
 
 function requireAuth(req, res, route, method) {
@@ -148,7 +210,25 @@ async function handleRequest(req, res) {
       return;
     }
 
+    if (route.name === "joa-bridge-status-preview" && req.method === "GET") {
+      const viewModel = buildViewModel(buildSampleSummary());
+      sendHtml(res, 200, renderBridgeStatusHtml(viewModel));
+      return;
+    }
+
     if (!requireAuth(req, res, route, req.method)) {
+      return;
+    }
+
+    if (route.name === "joa-bridge-status" && req.method === "GET") {
+      const viewModel = await buildBridgeStatusView(url);
+      sendHtml(res, 200, renderBridgeStatusHtml(viewModel));
+      return;
+    }
+
+    if (route.name === "joa-bridge-status-summary" && req.method === "GET") {
+      const viewModel = await buildBridgeStatusView(url);
+      sendJson(res, 200, viewModel);
       return;
     }
 

@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>JOA Bridge Status — Mock v0</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --surface: #1a2332;
+      --surface-2: #243044;
+      --text: #e7ecf3;
+      --muted: #9aa8bc;
+      --border: #334155;
+      --stranded: #f59e0b;
+      --running: #38bdf8;
+      --completed: #34d399;
+      --failed: #f87171;
+      --proto: #a78bfa;
+      --mono: "Cascadia Code", "Consolas", "SF Mono", monospace;
+      --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+
+    .wrap {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 1.25rem 1rem 3rem;
+    }
+
+    header {
+      margin-bottom: 1.5rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    header h1 {
+      margin: 0 0 0.35rem;
+      font-size: 1.45rem;
+      font-weight: 650;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      font-size: 0.95rem;
+      margin: 0;
+    }
+
+    .badge {
+      display: inline-block;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      padding: 0.2rem 0.55rem;
+      border-radius: 999px;
+      margin-top: 0.75rem;
+      background: rgba(167, 139, 250, 0.15);
+      color: var(--proto);
+      border: 1px solid rgba(167, 139, 250, 0.35);
+    }
+
+    .meta {
+      margin-top: 0.6rem;
+      font-size: 0.82rem;
+      color: var(--muted);
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 0.75rem;
+      margin-bottom: 1.75rem;
+    }
+
+    .summary-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.9rem 1rem;
+      border-top: 3px solid var(--accent, var(--border));
+    }
+
+    .summary-card.stranded { --accent: var(--stranded); }
+    .summary-card.running { --accent: var(--running); }
+    .summary-card.completed { --accent: var(--completed); }
+    .summary-card.failed { --accent: var(--failed); }
+
+    .summary-card .label {
+      font-size: 0.78rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .summary-card .count {
+      font-size: 2rem;
+      font-weight: 700;
+      line-height: 1.1;
+      margin-top: 0.15rem;
+    }
+
+    section {
+      margin-bottom: 1.75rem;
+    }
+
+    section h2 {
+      font-size: 1.05rem;
+      margin: 0 0 0.65rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .status-pill {
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      padding: 0.15rem 0.45rem;
+      border-radius: 4px;
+    }
+
+    .status-pill.stranded { background: rgba(245, 158, 11, 0.2); color: var(--stranded); }
+    .status-pill.running { background: rgba(56, 189, 248, 0.2); color: var(--running); }
+    .status-pill.completed { background: rgba(52, 211, 153, 0.2); color: var(--completed); }
+    .status-pill.failed { background: rgba(248, 113, 113, 0.2); color: var(--failed); }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+    }
+
+    th, td {
+      text-align: left;
+      padding: 0.65rem 0.85rem;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+
+    th {
+      background: var(--surface-2);
+      color: var(--muted);
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    tr:last-child td { border-bottom: none; }
+
+    .mono {
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      word-break: break-all;
+    }
+
+    .cmd {
+      display: block;
+      background: #0b1220;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.45rem 0.55rem;
+      margin-top: 0.25rem;
+      color: #cbd5e1;
+    }
+
+    .note-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem 1.1rem;
+    }
+
+    .note-box ul {
+      margin: 0.5rem 0 0;
+      padding-left: 1.2rem;
+    }
+
+    .note-box li { margin-bottom: 0.35rem; }
+
+    .rules {
+      display: grid;
+      gap: 0.5rem;
+    }
+
+    .rule {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.55rem 0.75rem;
+      background: var(--surface-2);
+      border-radius: 8px;
+      font-size: 0.9rem;
+    }
+
+    .rule code {
+      font-family: var(--mono);
+      font-size: 0.82rem;
+      background: #0b1220;
+      padding: 0.1rem 0.35rem;
+      border-radius: 4px;
+    }
+
+    .travel {
+      border-left: 3px solid var(--running);
+    }
+
+    @media (max-width: 720px) {
+      th:nth-child(n+4), td:nth-child(n+4) {
+        display: none;
+      }
+      .hide-mobile { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>JOA Bridge Status</h1>
+      <p class="subtitle">Command-channel visibility — no CLI required (design mock)</p>
+      <span class="badge">Prototype v0 · future JuOS Dashboard / JOA Status Room</span>
+      <p class="meta">Sample scan: 2026-06-20T09:35:00Z · TimOS-Agent · static data only</p>
+    </header>
+
+    <!-- 1. Bridge summary -->
+    <div class="summary-grid" aria-label="Bridge summary">
+      <div class="summary-card stranded">
+        <div class="label">Stranded</div>
+        <div class="count">1</div>
+      </div>
+      <div class="summary-card running">
+        <div class="label">Running</div>
+        <div class="count">1</div>
+      </div>
+      <div class="summary-card completed">
+        <div class="label">Completed · needs notification</div>
+        <div class="count">1</div>
+      </div>
+      <div class="summary-card failed">
+        <div class="label">Failed or blocked</div>
+        <div class="count">1</div>
+      </div>
+    </div>
+
+    <!-- 2. Stranded jobs -->
+    <section>
+      <h2>
+        Stranded jobs
+        <span class="status-pill stranded">approved · not claimed</span>
+      </h2>
+      <div class="card">
+        <table>
+          <thead>
+            <tr>
+              <th>Job ID</th>
+              <th>Title / task</th>
+              <th>Profile</th>
+              <th class="hide-mobile">Workspace</th>
+              <th>Age / approved</th>
+              <th>Recovery command</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="mono">91b8ebf4-5f9f-4dcf-97df-03ae42f47f6d</td>
+              <td>
+                <strong>Finalize reviewed status-layer changes</strong><br>
+                <span class="mono" style="color: var(--muted);">approved_finalize</span>
+              </td>
+              <td>joa</td>
+              <td class="mono hide-mobile">C:\projects\TimOS-Agent</td>
+              <td>
+                Approved 2026-06-20T07:12:00Z<br>
+                <span style="color: var(--stranded);">~2h unclaimed</span>
+              </td>
+              <td>
+                <code class="cmd">.\scripts\start-juos-worker.ps1 -Profile joa -JobId 91b8ebf4-5f9f-4dcf-97df-03ae42f47f6d</code>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 3. Running jobs -->
+    <section>
+      <h2>
+        Running jobs
+        <span class="status-pill running">claimed</span>
+      </h2>
+      <div class="card">
+        <table>
+          <thead>
+            <tr>
+              <th>Job ID</th>
+              <th>Profile</th>
+              <th>Claimed</th>
+              <th>Current status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="mono">1ce75a20-9142-4115-bf2a-10bf77b046fa</td>
+              <td>joa</td>
+              <td class="mono">2026-06-20T09:29:28Z</td>
+              <td>
+                <span class="status-pill running">claimed</span>
+                Bridge Status UI mock — supervised_implement in progress
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 4. Completed needs notification -->
+    <section>
+      <h2>
+        Completed · needs notification
+        <span class="status-pill completed">verify room post</span>
+      </h2>
+      <div class="card">
+        <table>
+          <thead>
+            <tr>
+              <th>Job ID</th>
+              <th>Result summary</th>
+              <th>Target room</th>
+              <th>Packet action needed</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="mono">e72cbac1-8a97-4519-8e9d-c479ba56a33d</td>
+              <td>No-Stranded-Job Status Layer v0 — CLI, lib classifier, recovery commands, room packet template</td>
+              <td>GSync</td>
+              <td>
+                Post completion summary to GSync with job id and files changed.<br>
+                <code class="cmd">node scripts/command-channel-status.js --job-id e72cbac1-8a97-4519-8e9d-c479ba56a33d --packet --target-room GSync</code>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 5. Failed or blocked -->
+    <section>
+      <h2>
+        Failed or blocked
+        <span class="status-pill failed">review required</span>
+      </h2>
+      <div class="card">
+        <table>
+          <thead>
+            <tr>
+              <th>Job ID</th>
+              <th>Error summary</th>
+              <th>Next owner</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="mono">a3c21f88-0b4e-4a9d-9c12-8f7e2d1a905b</td>
+              <td>
+                approved_finalize validation failed: workspace_ref must match joa contract;
+                worker hub not running at claim attempt
+              </td>
+              <td>Tim + JOA — do not auto-retry</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 6. Operating rules -->
+    <section>
+      <h2>Operating rules</h2>
+      <div class="rules">
+        <div class="rule"><code>approved</code> <span>≠</span> <code>running</code> — approval does not mean a worker claimed the job</div>
+        <div class="rule"><code>pending</code> <span>≠</span> <code>handled</code> — pending status is not proof of execution</div>
+        <div class="rule"><code>completed</code> <span>≠</span> <code>notified</code> — post result to the requesting room explicitly</div>
+      </div>
+      <p class="meta" style="margin-top: 0.75rem;">Rooms must not assume execution until <code class="mono">claimed_at</code> or terminal <code class="mono">result</code> is present.</p>
+    </section>
+
+    <!-- 7. Travel Mode readiness -->
+    <section>
+      <h2>Travel Mode readiness</h2>
+      <div class="note-box travel">
+        <p>This layout is intentionally simple HTML/CSS so a MacBook or phone browser can read bridge status later without CLI access.</p>
+        <ul>
+          <li>Responsive summary cards and tables — mobile hides non-critical columns</li>
+          <li>Future: same view served from JuOS Dashboard or JOA Status Room with live JSON from <code class="mono">command-channel-status.js --json</code></li>
+          <li>Station 4 / Station 5 worker status panels can be added as additional sections when those hubs are in scope</li>
+        </ul>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

@@ -5,6 +5,7 @@ JuOS command-channel jobs route to a repository and worker **per task payload**,
 See also:
 
 - [`command-channel-room-capabilities.yaml`](./command-channel-room-capabilities.yaml) — room/GPT capability registry
+- [`command-channel/room-lane-identity-v0.md`](./command-channel/room-lane-identity-v0.md) — room/lane identity registry (`source_room`, `active_lane`)
 - [`bridge/xiaoju-command-channel.md`](./bridge/xiaoju-command-channel.md) — no-paste flow and security boundary
 - [`bridge/worker-routing-contract.md`](./bridge/worker-routing-contract.md) — coordinator routing fields and algorithm
 
