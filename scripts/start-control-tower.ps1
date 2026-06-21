@@ -35,7 +35,7 @@ function Write-Check {
   $symbol = if ($Passed) { "PASS" } else { "WARN" }
   $line = "[$symbol] $Name"
   if ($Detail) {
-    $line += " — $Detail"
+    $line += " - $Detail"
   }
   Write-Host $line
 }
@@ -212,7 +212,7 @@ if ($nodeCmd) {
   $nodeVersion = (& node -v 2>&1 | Out-String).Trim()
   Write-Check -Name "Node.js" -Passed $true -Detail $nodeVersion
 } else {
-  Write-Check -Name "Node.js" -Passed $false -Detail "node not in PATH — install Node 18+"
+  Write-Check -Name "Node.js" -Passed $false -Detail "node not in PATH - install Node 18+"
   exit 1
 }
 
@@ -330,7 +330,7 @@ if (-not $Start) {
   Write-Host "Then open: $TowerUrl"
   if ($expectedIfStartedHere -eq "SETUP REQUIRED") {
     Write-Host ""
-    Write-Host "Auth is missing in this shell — browser will show SETUP REQUIRED until you restart"
+    Write-Host "Auth is missing in this shell - browser will show SETUP REQUIRED until you restart"
     Write-Host "from a token-loaded supervisor shell (do not paste tokens into chat)."
   }
   exit 0
