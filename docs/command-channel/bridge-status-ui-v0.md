@@ -69,22 +69,63 @@ The static HTML file uses illustrative jobs. The `/joa/bridge-status/preview` ro
 
 Live routes read from the command-channel store (filesystem local or Supabase when deployed). Refresh the live page to update; no client-side token or fetch.
 
+## Intended lifecycle (v0)
+
+```text
+pending → (Tim approves) → worker claims → claimed/running → completed|failed
+                                                                    ↓
+                                              result visible here + status CLI (no terminal paste)
+```
+
+| Stage | Bridge bucket | Tim action | Assistant / room action |
+|-------|---------------|------------|-------------------------|
+| Approved, not claimed | Stranded | Start JOA worker loop on Station 1 | `--recovery` or wait for claim |
+| Running | Running | None | Wait; do not assume completion |
+| Done | Completed needs notification | Optional: say job id only | Read `result.summary`; post to room |
+| Blocked | Failed or blocked | Review with Tim | Read `errors`; no auto-retry |
+
+Worker loop (Station 1): [`no-paste-worker-loop-v0.md`](./no-paste-worker-loop-v0.md).
+
+## Result visibility without terminal paste
+
+Completed and failed jobs expose structured fields on the job record:
+
+- **CLI:** `node scripts/command-channel-status.js --http --job-id <uuid> --packet`
+- **JSON:** `node scripts/command-channel-status.js --http --job-id <uuid> --json` → `result`, `errors`
+- **Live HTML:** stranded/running/completed rows on `/joa/bridge-status` (Bearer list token)
+- **Live JSON:** `/joa/bridge-status/summary`
+
+Tim should not paste worker terminal output when `result.summary` or `errors` are present. Paste is fallback only when status is still `claimed` with no result or command-channel is unreachable.
+
+## Remaining gaps
+
+| Gap | v0 mitigation |
+|-----|----------------|
+| Worker not auto-started by approval | `scripts/start-joa-worker-loop.ps1` on Station 1 |
+| Completed ≠ room notified | Manual room post; UI flags "needs notification" |
+| Phone / Travel Mode browser | Local bind only; JuOS deploy pending |
+| Per-job recovery when loop down | `npm run status:command-channel:recovery` |
+| Finalize path mismatches | [`finalize-exact-path-sop.md`](./finalize-exact-path-sop.md) |
+
 ## Intentionally not implemented
 
 - Browser session auth (JuOS deploy — see external v0 doc)
-- Auto-claim, auto-routing, or worker behavior changes
+- Server-side auto-dispatch from `auto_run_requested` (workers poll locally)
 - Notification ledger (cannot detect if room already notified)
 - Auth/token changes or public live job data
-- Station 4/5 worker panels
+- Station 4/5 always-on workers
 
 ## Recommended next step (external Travel Mode)
 
 1. Deploy `/joa/bridge-status` to JuOS with session auth — see [`bridge-status-external-v0.md`](./bridge-status-external-v0.md).
 2. Optional: meta-refresh or polling on the JuOS-hosted page.
 3. Optional: notification ledger to hide completed rows after room post.
+4. Parallel: keep `start-joa-worker-loop.ps1` running on Station 1 until hosted worker exists.
 
 ## Related
 
+- No-paste SOP: [`no-paste-worker-loop-v0.md`](./no-paste-worker-loop-v0.md)
+- Finalize paths: [`finalize-exact-path-sop.md`](./finalize-exact-path-sop.md)
 - Status CLI: `scripts/command-channel-status.js`
 - Room packet template: [`templates/command-channel/status-packet.md`](../../templates/command-channel/status-packet.md)
 - Room / lane registry: [`room-lane-identity-v0.md`](./room-lane-identity-v0.md) — `source_room`, `active_lane`

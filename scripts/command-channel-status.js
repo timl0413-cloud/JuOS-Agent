@@ -6,6 +6,7 @@ const {
   summarizeJobs,
   formatStatusReport,
   renderStatusPacket,
+  buildRecoveryCommand,
   STATUS_CATEGORIES,
 } = require("../lib/command-channel-status");
 const { XIAOJU_TOKEN_NAME } = require("../lib/command-channel-auth");
@@ -201,6 +202,8 @@ async function main() {
   const jobId = parseNamedArg("--job-id");
   const asJson = process.argv.includes("--json");
   const asPacket = process.argv.includes("--packet");
+  const recoveryOnly = process.argv.includes("--recovery");
+  const recoveryPackets = process.argv.includes("--recovery-packets");
   const targetRoom = parseNamedArg("--target-room") || "room";
   const recoveryStyle = process.argv.includes("--recovery-node") ? "node" : "powershell";
 
@@ -227,6 +230,48 @@ async function main() {
   });
 
   const summary = summarizeJobs(jobs);
+  const stranded = summary.buckets[STATUS_CATEGORIES.PENDING_UNCLAIMED];
+
+  if (recoveryOnly || recoveryPackets) {
+    if (stranded.length === 0) {
+      console.log("No stranded jobs (approved + pending + unclaimed).");
+      if (recoveryOnly && !recoveryPackets) {
+        console.log("");
+        console.log(
+          "Keep worker loop running: .\\scripts\\start-joa-worker-loop.ps1"
+        );
+      }
+      return;
+    }
+
+    for (const classified of stranded) {
+      const job = classified.job;
+      if (recoveryPackets) {
+        console.log(
+          renderStatusPacket(classified, {
+            target_room: targetRoom,
+            style: recoveryStyle,
+          })
+        );
+        console.log("");
+        continue;
+      }
+
+      console.log(`${job.id} | profile=${job.target_worker_profile} | task=${job.task_type}`);
+      console.log(`  RECOVER: ${buildRecoveryCommand(job, { style: recoveryStyle })}`);
+      if (job.approval_summary) {
+        console.log(`  approval: ${job.approval_summary}`);
+      }
+      console.log("");
+    }
+
+    if (recoveryOnly && !recoveryPackets) {
+      console.log(
+        "Preferred fix: start persistent loop — .\\scripts\\start-joa-worker-loop.ps1"
+      );
+    }
+    return;
+  }
 
   if (asJson) {
     console.log(

@@ -46,11 +46,33 @@ node scripts/command-channel-status.js --json
 
 # Room-facing packet for one job
 node scripts/command-channel-status.js --job-id <uuid> --packet --target-room GSync
+
+# Stranded jobs — recovery commands only
+node scripts/command-channel-status.js --http --recovery --profile joa
+
+# Stranded jobs — room packet per job
+node scripts/command-channel-status.js --http --recovery-packets --profile joa --target-room room
 ```
 
 ## Recovery for stranded jobs
 
-When status shows **STRANDED — approved + pending + unclaimed**, claim explicitly by profile + job id:
+**Preferred (v0):** keep a persistent JOA worker running so approved jobs auto-claim:
+
+```powershell
+.\scripts\start-joa-worker-loop.ps1
+```
+
+See [`no-paste-worker-loop-v0.md`](./no-paste-worker-loop-v0.md) for the full no-paste / no-manual-claim SOP.
+
+When status shows **STRANDED — approved + pending + unclaimed**, list recovery commands:
+
+```powershell
+node scripts/command-channel-status.js --http --recovery --profile joa
+# or
+npm run status:command-channel:recovery
+```
+
+Per-job claim (when loop is not running):
 
 ```powershell
 .\scripts\start-juos-worker.ps1 -Profile joa -JobId <job-uuid>
@@ -62,7 +84,7 @@ Node equivalent:
 node scripts/command-channel-worker.js --http --once --worker-profile joa --job-id <job-uuid> --cursor-agent
 ```
 
-Do **not** rely on lane claim (`--allow-lane`) for approved supervised jobs unless the hub is confirmed running for that profile.
+Persistent multi-profile hubs: `scripts/start-worker-hubs.ps1` (all lanes, separate windows).
 
 ## Room-facing status packet
 
@@ -91,13 +113,16 @@ Packet types map to status categories: `pending_unclaimed`, `claimed_running`, `
 
 ## Next step before 7/4 (always-on)
 
-1. Add `command-channel-status.js` to a scheduled check (Task Scheduler or hub startup banner) every 5–15 minutes.
-2. Run `scripts/start-worker-hubs.ps1` (or profile-specific hubs) persistently so approved jobs are claimed without manual recovery.
-3. Optionally wire JOA to emit a GSync/JUB packet when `stranded_count > 0` (manual or scripted `--json` + packet template).
-4. After worker completion, require a one-line room post with job id + summary (operating habit until notification tracking exists).
+1. Run `scripts/start-joa-worker-loop.ps1` on Station 1 before leaving (JOA lane).
+2. Add `command-channel-status.js` to a scheduled check (Task Scheduler or hub startup banner) every 5–15 minutes.
+3. Run `scripts/start-worker-hubs.ps1` when Finance/JuCore/Nova/SpaceA/Ministry lanes need unattended claim.
+4. Optionally wire JOA to emit a GSync/JUB packet when `stranded_count > 0` (`--recovery-packets`).
+5. After worker completion, assistants read `result.summary` by job id — no terminal paste ([`no-paste-worker-loop-v0.md`](./no-paste-worker-loop-v0.md)).
 
 ## Related
 
-- Worker startup: `scripts/start-juos-worker.ps1`, `scripts/start-worker-hubs.ps1`
+- No-paste loop: [`no-paste-worker-loop-v0.md`](./no-paste-worker-loop-v0.md)
+- Finalize paths: [`finalize-exact-path-sop.md`](./finalize-exact-path-sop.md)
+- Worker startup: `scripts/start-juos-worker.ps1`, `scripts/start-joa-worker-loop.ps1`, `scripts/start-worker-hubs.ps1`
 - Repo routing: `docs/command-channel-repo-routing.md`
 - Bridge overview: `docs/bridge/xiaoju-command-channel.md`
