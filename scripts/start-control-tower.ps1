@@ -169,6 +169,105 @@ function Get-ProcessSummary {
   }
 }
 
+function Get-TowerHealthUrl {
+  param([int]$LocalPort)
+
+  return "http://127.0.0.1:$LocalPort/health"
+}
+
+function Test-TowerHealthEndpoint {
+  param(
+    [int]$LocalPort,
+    [int]$TimeoutSec = 2
+  )
+
+  $healthUrl = Get-TowerHealthUrl -LocalPort $LocalPort
+  try {
+    $response = Invoke-WebRequest -Uri $healthUrl -UseBasicParsing -TimeoutSec $TimeoutSec
+    if ($response.StatusCode -ne 200) {
+      return $false
+    }
+    $content = [string]$response.Content
+    return ($content -match '"ok"\s*:\s*true')
+  } catch {
+    return $false
+  }
+}
+
+function Wait-TowerServerReady {
+  param(
+    [int]$LocalPort,
+    [System.Diagnostics.Process]$ServerProcess = $null,
+    [int]$TimeoutSeconds = 60,
+    [int]$PollIntervalMs = 500
+  )
+
+  $healthUrl = Get-TowerHealthUrl -LocalPort $LocalPort
+  $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+  $attempt = 0
+
+  Write-Host "Waiting for Tower server at $healthUrl ..."
+
+  while ((Get-Date) -lt $deadline) {
+    $attempt++
+    if ($ServerProcess -and $ServerProcess.HasExited) {
+      $exitCode = $ServerProcess.ExitCode
+      throw [System.InvalidOperationException]::new(
+        "Server process exited before health check passed (exit code $exitCode). Command: npm run server:command-channel"
+      )
+    }
+
+    if (Test-TowerHealthEndpoint -LocalPort $LocalPort -TimeoutSec 2) {
+      Write-Check -Name "Tower server ready" -Passed $true -Detail $healthUrl
+      return
+    }
+
+    if ($attempt -eq 1 -or ($attempt % 10) -eq 0) {
+      Write-Host "  still waiting... (attempt $attempt)"
+    }
+
+    Start-Sleep -Milliseconds $PollIntervalMs
+  }
+
+  throw [System.InvalidOperationException]::new(
+    "Tower server did not respond within ${TimeoutSeconds}s. Probe: $healthUrl. Command: npm run server:command-channel"
+  )
+}
+
+function Write-TowerStartupFailure {
+  param(
+    [string]$Message,
+    [System.Diagnostics.Process]$ServerProcess = $null,
+    [string]$Root = $RepoRoot
+  )
+
+  Write-Host ""
+  Write-Host "ERROR: Tower server failed to start."
+  Write-Host $Message
+  Write-Host "Command: npm run server:command-channel"
+  Write-Host "Working directory: $Root"
+  if ($ServerProcess -and $ServerProcess.HasExited) {
+    Write-Host "Process exit code: $($ServerProcess.ExitCode)"
+  }
+  Write-Host ""
+  Write-Host "Browser was NOT opened. Fix the issue above and retry:"
+  Write-Host "  .\scripts\start-control-tower.ps1 -Start -Watch -ForceStop -OpenBrowser"
+}
+
+function Start-CommandChannelServerProcess {
+  param([string]$Root)
+
+  $serverScript = Join-Path $Root "scripts\server-command-channel.js"
+  return Start-Process -FilePath "node" -ArgumentList @($serverScript) -WorkingDirectory $Root -PassThru -NoNewWindow
+}
+
+function Open-TowerBrowser {
+  param([string]$Url)
+
+  Write-Host "Opening browser: $Url"
+  Start-Process $Url
+}
+
 function Get-TowerHttpState {
   param([string]$Url)
 
@@ -235,14 +334,28 @@ function Start-TowerWatchLoop {
   param(
     [string]$Root,
     [int]$LocalPort,
+    [string]$TowerPageUrl,
     [switch]$OpenBrowserOnStart
   )
 
   $watchPaths = @(Get-TowerWatchFilePaths -Root $Root | Where-Object { Test-Path $_ })
   if ($watchPaths.Count -eq 0) {
     Write-Host "Watch mode: no watch files found - starting server once."
-    & npm run server:command-channel
-    return $LASTEXITCODE
+    $serverProcess = Start-CommandChannelServerProcess -Root $Root
+    try {
+      Wait-TowerServerReady -LocalPort $LocalPort -ServerProcess $serverProcess
+      if ($OpenBrowserOnStart) {
+        Open-TowerBrowser -Url $TowerPageUrl
+      }
+      Wait-Process -Id $serverProcess.Id
+      return $serverProcess.ExitCode
+    } catch {
+      if ($serverProcess -and -not $serverProcess.HasExited) {
+        try { Stop-Process -Id $serverProcess.Id -Force -ErrorAction SilentlyContinue } catch {}
+      }
+      Write-TowerStartupFailure -Message $_.Exception.Message -ServerProcess $serverProcess -Root $Root
+      return 1
+    }
   }
 
   Write-Host "Watch mode: auto-restart when Tower files change (Ctrl+C to stop)."
@@ -285,19 +398,24 @@ function Start-TowerWatchLoop {
   $pollIntervalSeconds = 2
 
   while ($true) {
-    if ($OpenBrowserOnStart -and -not $openedBrowser) {
-      Start-Job -ScriptBlock {
-        param($Url)
-        Start-Sleep -Seconds 2
-        Start-Process $Url
-      } -ArgumentList $TowerUrl | Out-Null
-      $openedBrowser = $true
-    }
-
     Write-Host "Starting command-channel server..."
-    $serverProcess = Start-Process -FilePath "npm" -ArgumentList @("run", "server:command-channel") -WorkingDirectory $Root -PassThru -NoNewWindow
+    $serverProcess = Start-CommandChannelServerProcess -Root $Root
     $restartRequested = $false
     $restartReason = ""
+
+    try {
+      Wait-TowerServerReady -LocalPort $LocalPort -ServerProcess $serverProcess
+      if ($OpenBrowserOnStart -and -not $openedBrowser) {
+        Open-TowerBrowser -Url $TowerPageUrl
+        $openedBrowser = $true
+      }
+    } catch {
+      if ($serverProcess -and -not $serverProcess.HasExited) {
+        try { Stop-Process -Id $serverProcess.Id -Force -ErrorAction SilentlyContinue } catch {}
+      }
+      Write-TowerStartupFailure -Message $_.Exception.Message -ServerProcess $serverProcess -Root $Root
+      return 1
+    }
 
     while (-not $serverProcess.HasExited) {
       Start-Sleep -Seconds $pollIntervalSeconds
@@ -319,6 +437,10 @@ function Start-TowerWatchLoop {
     }
 
     if ($serverProcess.HasExited -and -not $restartRequested) {
+      Write-Host ""
+      Write-Host "ERROR: command-channel server exited unexpectedly (exit code $($serverProcess.ExitCode))."
+      Write-Host "Command: npm run server:command-channel"
+      Write-Host "Working directory: $Root"
       return $serverProcess.ExitCode
     }
   }
@@ -475,20 +597,27 @@ Write-Host ""
 Push-Location $RepoRoot
 try {
   if ($Watch) {
-    $watchExit = Start-TowerWatchLoop -Root $RepoRoot -LocalPort $Port -OpenBrowserOnStart:$OpenBrowser
+    $watchExit = Start-TowerWatchLoop -Root $RepoRoot -LocalPort $Port -TowerPageUrl $TowerUrl -OpenBrowserOnStart:$OpenBrowser
     exit $watchExit
   }
 
-  if ($OpenBrowser) {
-    Start-Job -ScriptBlock {
-      param($Url)
-      Start-Sleep -Seconds 2
-      Start-Process $Url
-    } -ArgumentList $TowerUrl | Out-Null
+  $serverProcess = Start-CommandChannelServerProcess -Root $RepoRoot
+  try {
+    Wait-TowerServerReady -LocalPort $Port -ServerProcess $serverProcess
+    if ($OpenBrowser) {
+      Open-TowerBrowser -Url $TowerUrl
+    }
+    Write-Host ""
+    Write-Host "Command-channel server running (Ctrl+C to stop this launcher)..."
+    Wait-Process -Id $serverProcess.Id
+    exit $serverProcess.ExitCode
+  } catch {
+    if ($serverProcess -and -not $serverProcess.HasExited) {
+      try { Stop-Process -Id $serverProcess.Id -Force -ErrorAction SilentlyContinue } catch {}
+    }
+    Write-TowerStartupFailure -Message $_.Exception.Message -ServerProcess $serverProcess -Root $RepoRoot
+    exit 1
   }
-
-  & npm run server:command-channel
-  exit $LASTEXITCODE
 } finally {
   Pop-Location
 }
