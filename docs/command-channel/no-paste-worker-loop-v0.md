@@ -4,7 +4,8 @@ Two related improvements that Tim should not confuse:
 
 | Concept | What it fixes | Tim's action | Assistant action |
 |---------|---------------|--------------|------------------|
-| **No-paste result lookup** | Pasting terminal logs | Say `done` or paste **job id only** | Query command-channel for `result`, `errors`, status packet |
+| **No-paste result lookup** | Pasting terminal logs | Optional: say `done` or paste **job id only** | Run watch command or query by job id |
+| **Completion watcher (v0)** | Tim forgetting to say `done` | **None** — multitask freely | Run `npm run status:command-channel:watch`; review completed rows |
 | **No-manual-claim worker loop** | Starting one JobId at a time | Start **one** persistent worker window before leaving Station 1 | Monitor Bridge Status / status CLI; no terminal paste |
 
 `auto_run_requested=true` on a job means **Tim approved unattended execution**. It does **not** start a worker by itself. A polling worker must be running locally (or recovery must be run per job).
@@ -29,7 +30,7 @@ flowchart LR
   F --> G{outcome}
   G -->|success| H[status=completed result populated]
   G -->|failure| I[status=failed errors populated]
-  H --> J[Assistant queries by job id]
+  H --> J[Assistant watch or query by job id]
   I --> J
   J --> K[Room notified from result — no terminal paste]
 ```
@@ -83,14 +84,25 @@ Requires `XIAOJU_ACTION_TOKEN` in the supervisor shell. Validates workspaces, th
 
 Tim should **not** paste terminal output unless command-channel has no result yet.
 
-### Tim says
+### Tim says (optional shortcuts)
 
 - `done` — assistant finds the latest completed/failed job for the active lane, or
 - `<job-uuid>` — assistant looks up that job directly.
 
+**Preferred:** assistant runs the completion watcher so Tim does not need to remember:
+
+```powershell
+npm run status:command-channel:watch
+```
+
+See [`completion-notification-v0.md`](./completion-notification-v0.md).
+
 ### Assistant commands (from repo root)
 
 ```powershell
+# Completion watcher — what needs attention (no job id from Tim)
+npm run status:command-channel:watch
+
 # Single job — room-facing packet
 node scripts/command-channel-status.js --http --job-id <uuid> --packet --target-room room
 
@@ -140,11 +152,22 @@ Then either start the loop (preferred) or claim one job explicitly:
 
 | Gap | Mitigation now | Future |
 |-----|----------------|--------|
-| Worker must stay running on Station 1 | `start-joa-worker-loop.ps1` | Always-on Station 4/5 or hosted worker |
-| No notification ledger | Manual room post after `completed` | Ledger + auto packet |
+| Worker must stay running on a host | `start-joa-worker-loop.ps1` on Station 1 (interim) | Always-on Station 4/5 — see [`station-45-worker-hub-v0.md`](./station-45-worker-hub-v0.md) |
+| No notification ledger | Watch command flags completed until room post | Ledger + auto packet |
+| Tim must say `done` | Completion watcher surfaces finished jobs | Optional — shortcuts still work |
 | Bridge Status not on phone | CLI / curl on Station 1 | JuOS-hosted `/joa/bridge-status` with session auth |
 | `auto_run_requested` does not dispatch | Documented; loop claims approved jobs | Optional server-side queue worker (out of scope) |
 | Non-JOA lanes idle unless hubs started | `start-worker-hubs.ps1` | Per-lane activation playbook |
+
+## Completion watcher (v0)
+
+Tim should not need to say `done` while multitasking. Whenever XiaoJu/JOA checks status:
+
+```powershell
+npm run status:command-channel:watch
+```
+
+Shows **completed-needs-assistant-review** and other attention buckets. Not a background alert — ChatGPT cannot be awakened automatically. See [`completion-notification-v0.md`](./completion-notification-v0.md).
 
 ## Time-aware sweep (v0)
 
@@ -158,12 +181,15 @@ See [`time-aware-status-sweep-v0.md`](./time-aware-status-sweep-v0.md) for categ
 
 ## Recommended next step
 
-1. **Now:** Run `start-joa-worker-loop.ps1` on Station 1 before Travel Mode; run time sweep before leaving; assistants use no-paste lookup.
-2. **Next:** Deploy Bridge Status to JuOS for phone/MacBook visibility ([`bridge-status-external-v0.md`](./bridge-status-external-v0.md)).
-3. **Then:** Always-on worker on Station 4/5 or first non-JOA lane activation when Finance/JuCore/Nova jobs need unattended claim.
+1. **Now:** Run `start-joa-worker-loop.ps1` on Station 1 while at desk; run completion watch before leaving; assistants use watch + no-paste lookup.
+2. **Next:** Bootstrap always-on JOA loop on Station 4/5 ([`station-45-worker-hub-v0.md`](./station-45-worker-hub-v0.md)); preflight with `.\scripts\check-worker-hub-preflight.ps1 -RunStatusProbe`.
+3. **Then:** Deploy Bridge Status to JuOS for phone/MacBook visibility ([`bridge-status-external-v0.md`](./bridge-status-external-v0.md)).
+4. **Later:** First non-JOA lane activation when Finance/JuCore/Nova jobs need unattended claim (`start-worker-hubs.ps1`).
 
 ## Related
 
+- Completion watcher: [`completion-notification-v0.md`](./completion-notification-v0.md)
+- Station 4/5 always-on hub: [`station-45-worker-hub-v0.md`](./station-45-worker-hub-v0.md)
 - Time-aware sweep: [`time-aware-status-sweep-v0.md`](./time-aware-status-sweep-v0.md)
 - Stranded detection: [`no-stranded-job-v0.md`](./no-stranded-job-v0.md)
 - Finalize path rules: [`finalize-exact-path-sop.md`](./finalize-exact-path-sop.md)

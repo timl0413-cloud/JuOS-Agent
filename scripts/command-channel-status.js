@@ -12,7 +12,12 @@ const {
 const {
   summarizeTimeSweep,
   formatTimeSweepReport,
+  formatAssistantWatchReport,
 } = require("../lib/command-channel-time-sweep");
+const {
+  buildTowerSummary,
+  formatControlTowerReport,
+} = require("../lib/command-channel-short-status-page");
 const { XIAOJU_TOKEN_NAME } = require("../lib/command-channel-auth");
 
 function loadLocalWorkerEnv() {
@@ -206,7 +211,9 @@ async function main() {
   const jobId = parseNamedArg("--job-id");
   const asJson = process.argv.includes("--json");
   const asPacket = process.argv.includes("--packet");
-  const timeSweep = process.argv.includes("--time-sweep");
+  const assistantWatch = process.argv.includes("--watch");
+  const controlTower = process.argv.includes("--tower");
+  const timeSweep = process.argv.includes("--time-sweep") || assistantWatch;
   const recoveryOnly = process.argv.includes("--recovery");
   const recoveryPackets = process.argv.includes("--recovery-packets");
   const targetRoom = parseNamedArg("--target-room") || "room";
@@ -287,6 +294,17 @@ async function main() {
           backend: mode === "local" ? getBackendStatus() : { backend: "http" },
           ...summary,
           ...(timeSummary ? { time_sweep: timeSummary } : {}),
+          ...(controlTower
+            ? {
+                control_tower: buildTowerSummary(jobs, {
+                  summary,
+                  backend:
+                    mode === "local"
+                      ? getBackendStatus()
+                      : { backend: "http" },
+                }),
+              }
+            : {}),
         },
         null,
         2
@@ -295,12 +313,29 @@ async function main() {
     return;
   }
 
+  if (controlTower) {
+    const tower = buildTowerSummary(jobs, {
+      summary,
+      backend: mode === "local" ? getBackendStatus() : { backend: "http" },
+    });
+    const header =
+      mode === "http"
+        ? `Backend: http (${process.env.COMMAND_CHANNEL_URL || "https://juos.vercel.app/api/command-channel"})`
+        : `Backend: local (${JSON.stringify(getBackendStatus())})`;
+    console.log(formatControlTowerReport(tower));
+    console.log(header);
+    return;
+  }
+
   if (timeSweep) {
     const header =
       mode === "http"
         ? `Backend: http (${process.env.COMMAND_CHANNEL_URL || "https://juos.vercel.app/api/command-channel"})`
         : `Backend: local (${JSON.stringify(getBackendStatus())})`;
-    console.log(formatTimeSweepReport(timeSummary, { style: recoveryStyle }));
+    const report = assistantWatch
+      ? formatAssistantWatchReport(timeSummary, { style: recoveryStyle })
+      : formatTimeSweepReport(timeSummary, { style: recoveryStyle });
+    console.log(report);
     console.log(header);
     return;
   }

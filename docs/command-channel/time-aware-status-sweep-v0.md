@@ -10,7 +10,7 @@ This v0 layer is **read-only and operator-facing**. It does not schedule cron jo
 |---------|----------------|
 | Approved jobs sit unclaimed | Time sweep flags **stranded** after threshold |
 | Claimed jobs hang silently | **Running too long** after claim threshold |
-| Completed jobs never reach rooms | **Completed needs notification** |
+| Completed jobs never reach rooms | **Completed needs assistant review** (watchlist) |
 | TimOS tasks slip past due dates | Documented TimOS compare logic (manual/query) |
 | Station 1 goes offline | **Station 4/5 setup triggers** documented |
 
@@ -19,6 +19,18 @@ This v0 layer is **read-only and operator-facing**. It does not schedule cron jo
 Each run records `swept_at` (ISO timestamp = now) and classifies every listed job.
 
 ### Categories
+
+**Assistant watchlist (top-level, one bucket per job):**
+
+| Category | Meaning |
+|----------|---------|
+| `completed_needs_assistant_review` | `status=completed` — assistant must read result and report to room |
+| `failed_needs_attention` | Failed, cancelled, or blocked |
+| `pending_or_stranded` | Awaiting approval, or approved + unclaimed (incl. stranded) |
+| `running_too_long` | Claimed past runtime threshold |
+| `no_action_needed` | Claimed within threshold — on track |
+
+**Time-sweep detail buckets (below watchlist in full sweep output):**
 
 | Category | Meaning | Default trigger |
 |----------|---------|-----------------|
@@ -37,7 +49,13 @@ Fresh approved-unclaimed jobs (< 5 min) appear as `trigger_now` (not yet `strand
 From `C:\projects\TimOS-Agent`:
 
 ```powershell
-# Time-aware sweep (HTTP production board)
+# Completion watcher — watchlist-first (recommended for XiaoJu/JOA)
+npm run status:command-channel:watch
+
+# Or explicitly:
+node scripts/command-channel-status.js --http --watch --profile joa
+
+# Time-aware sweep (HTTP production board) — watchlist + detail buckets
 node scripts/command-channel-status.js --http --time-sweep
 
 # Filter JOA lane
@@ -98,6 +116,15 @@ Run through this checklist when **any** trigger applies. Goal: JOA worker loop (
 
 Station 4/5 v0 is **documentation + manual setup** only. No remote deploy or auth changes in this sweep.
 
+**Bootstrap playbook:** [`station-45-worker-hub-v0.md`](./station-45-worker-hub-v0.md) — prerequisites, tomorrow setup sequence, preflight script, smoke test, sleep SOP.
+
+Preflight (no token values printed):
+
+```powershell
+cd C:\projects\TimOS-Agent
+.\scripts\check-worker-hub-preflight.ps1 -RunStatusProbe
+```
+
 ### Minimum Station 1 command (JOA loop)
 
 ```powershell
@@ -109,24 +136,30 @@ Requires `WORKER_TOKEN` (or worker profile in `config/auth.json`) in the supervi
 
 ## Assistant SOP (each status check)
 
-1. Run time sweep (`--time-sweep` or `--time-sweep --json`).
+1. Run watch or time sweep (`--watch`, `--time-sweep`, or `npm run status:command-channel:watch`).
 2. Read `swept_at` — that is **now** for this check.
-3. If `trigger_now_count > 0`, list items and next action (recovery, notify room, Tim approval).
-4. If leaving Station 1 soon, cross-check Station 4/5 triggers above.
-5. Do **not** assume ChatGPT will remind later — suggest Tim run sweep again or keep worker loop running.
+3. Check watchlist `needs_attention_count`; work **completed-needs-assistant-review** first (Tim need not say `done`).
+4. If `trigger_now_count > 0`, list detail items and next action (recovery, notify room, Tim approval).
+5. If leaving Station 1 soon, cross-check Station 4/5 triggers above.
+6. Do **not** assume ChatGPT will remind later — suggest Tim run watch again or keep worker loop running.
+
+See also: [`completion-notification-v0.md`](./completion-notification-v0.md).
 
 ## What remains before true automatic timed reminders
 
 | Gap | v0 | Future |
 |-----|-----|--------|
 | No background scheduler | Manual/assistant-initiated sweep only | Task Scheduler, hub heartbeat, or hosted cron |
-| No push notifications | CLI/report output | Notification ledger + room packets |
+| No push notifications | CLI/watchlist output | Notification ledger + room packets |
 | TimOS tasks not queried | Documented classify logic | JuOS task API integration |
-| No "last notified" tracking | Completed flagged every sweep | Dedupe with notification ledger |
+| No "last notified" / reviewed tracking | Completed flagged every watch run | Dedupe with notification ledger |
+| No ChatGPT background wake-up | Assistant runs watch when checking status | External alert (SMS, push, dashboard) |
 | Thresholds fixed in code | Edit lib constants | Env/config profile |
 
 ## Related
 
+- Completion watcher: [`completion-notification-v0.md`](./completion-notification-v0.md)
+- Station 4/5 bootstrap: [`station-45-worker-hub-v0.md`](./station-45-worker-hub-v0.md)
 - Worker loop: [`no-paste-worker-loop-v0.md`](./no-paste-worker-loop-v0.md)
 - Stranded detection: [`no-stranded-job-v0.md`](./no-stranded-job-v0.md)
 - Status CLI: `scripts/command-channel-status.js`

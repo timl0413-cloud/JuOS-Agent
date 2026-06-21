@@ -2,14 +2,37 @@
 
 Read-only command-channel and worker bridge visibility for Travel Mode. Tim can see stranded, running, completed, and failed jobs without CLI.
 
+## Short names (recommended)
+
+Remember three aliases — full detail in [`short-status-routes-v0.md`](./short-status-routes-v0.md):
+
+| Alias | Purpose |
+|-------|---------|
+| `/tower` | Control Tower motion — running, next owner, lane readiness |
+| `/watch` | Assistant Watcher — needs attention watchlist |
+| `/status` | General Bridge Status — full bucket tables |
+
+After `npm run server:command-channel`:
+
+```powershell
+start http://127.0.0.1:8790/status/preview
+start http://127.0.0.1:8790/watch/preview
+start http://127.0.0.1:8790/tower/preview
+```
+
 ## Surfaces
 
 | Surface | Data | How to open |
 |---------|------|-------------|
 | Static mock (legacy) | Sample | `docs/command-channel/bridge-status-ui-v0.html` |
-| API preview route | Sample | `http://127.0.0.1:8790/joa/bridge-status/preview` (after `npm run server:command-channel`) |
-| API live route | **Live** | `GET /joa/bridge-status` with Bearer `remote-jobs:list` |
-| API live JSON | **Live** | `GET /joa/bridge-status/summary` with Bearer `remote-jobs:list` |
+| **Short preview** | Sample | `http://127.0.0.1:8790/status/preview` (also `/watch/preview`, `/tower/preview`) |
+| API preview route (legacy path) | Sample | `http://127.0.0.1:8790/joa/bridge-status/preview` |
+| **Short live route** | **Live** | `GET /status` with Bearer `remote-jobs:list` |
+| API live route (legacy path) | **Live** | `GET /joa/bridge-status` with Bearer `remote-jobs:list` |
+| **Short live JSON** | **Live** | `GET /status/summary` with Bearer `remote-jobs:list` |
+| API live JSON (legacy path) | **Live** | `GET /joa/bridge-status/summary` with Bearer `remote-jobs:list` |
+
+CLI shortcuts: `npm run status:bridge`, `npm run status:watch`, `npm run status:tower`.
 
 External MacBook/phone path: see [`bridge-status-external-v0.md`](./bridge-status-external-v0.md).
 
@@ -124,6 +147,7 @@ Tim should not paste worker terminal output when `result.summary` or `errors` ar
 
 ## Related
 
+- **Short routes:** [`short-status-routes-v0.md`](./short-status-routes-v0.md) — `/tower`, `/watch`, `/status`
 - No-paste SOP: [`no-paste-worker-loop-v0.md`](./no-paste-worker-loop-v0.md)
 - Finalize paths: [`finalize-exact-path-sop.md`](./finalize-exact-path-sop.md)
 - Status CLI: `scripts/command-channel-status.js`
