@@ -3,7 +3,8 @@ param(
   [int]$Port = 0,
   [switch]$Start,
   [switch]$ForceStop,
-  [switch]$OpenBrowser
+  [switch]$OpenBrowser,
+  [switch]$Watch
 )
 
 $ErrorActionPreference = "Stop"
@@ -218,6 +219,111 @@ function Stop-PortListeners {
   }
 }
 
+function Get-TowerWatchFilePaths {
+  param([string]$Root)
+
+  return @(
+    (Join-Path $Root "config\tower-current-batch.json"),
+    (Join-Path $Root "lib\tower-current-batch-manifest.js"),
+    (Join-Path $Root "lib\tower-server-build-marker.js"),
+    (Join-Path $Root "lib\command-channel-short-status-page.js"),
+    (Join-Path $Root "scripts\start-control-tower.ps1")
+  )
+}
+
+function Start-TowerWatchLoop {
+  param(
+    [string]$Root,
+    [int]$LocalPort,
+    [switch]$OpenBrowserOnStart
+  )
+
+  $watchPaths = @(Get-TowerWatchFilePaths -Root $Root | Where-Object { Test-Path $_ })
+  if ($watchPaths.Count -eq 0) {
+    Write-Host "Watch mode: no watch files found — starting server once."
+    & npm run server:command-channel
+    return $LASTEXITCODE
+  }
+
+  Write-Host "Watch mode: auto-restart when Tower files change (Ctrl+C to stop)."
+  Write-Host "Watching:"
+  foreach ($watchPath in $watchPaths) {
+    Write-Host "  - $watchPath"
+  }
+  Write-Host ""
+
+  function Get-WatchBaselines {
+    param([array]$Paths)
+
+    $baselines = @{}
+    foreach ($watchPath in $Paths) {
+      $baselines[$watchPath] = (Get-Item -LiteralPath $watchPath).LastWriteTimeUtc
+    }
+    return $baselines
+  }
+
+  function Test-WatchPathsChanged {
+    param(
+      [array]$Paths,
+      [hashtable]$Baselines,
+      [ref]$ChangedPath
+    )
+
+    foreach ($watchPath in $Paths) {
+      $current = (Get-Item -LiteralPath $watchPath).LastWriteTimeUtc
+      if ($current -gt $Baselines[$watchPath]) {
+        $Baselines[$watchPath] = $current
+        $ChangedPath.Value = $watchPath
+        return $true
+      }
+    }
+    return $false
+  }
+
+  $watchBaselines = Get-WatchBaselines -Paths $watchPaths
+  $openedBrowser = $false
+  $pollIntervalSeconds = 2
+
+  while ($true) {
+    if ($OpenBrowserOnStart -and -not $openedBrowser) {
+      Start-Job -ScriptBlock {
+        param($Url)
+        Start-Sleep -Seconds 2
+        Start-Process $Url
+      } -ArgumentList $TowerUrl | Out-Null
+      $openedBrowser = $true
+    }
+
+    Write-Host "Starting command-channel server..."
+    $serverProcess = Start-Process -FilePath "npm" -ArgumentList @("run", "server:command-channel") -WorkingDirectory $Root -PassThru -NoNewWindow
+    $restartRequested = $false
+    $restartReason = ""
+
+    while (-not $serverProcess.HasExited) {
+      Start-Sleep -Seconds $pollIntervalSeconds
+      $changedPath = ""
+      if (Test-WatchPathsChanged -Paths $watchPaths -Baselines $watchBaselines -ChangedPath ([ref]$changedPath)) {
+        $restartRequested = $true
+        $restartReason = $changedPath
+        Write-Host ""
+        Write-Host "Tower file changed: $restartReason"
+        Write-Host "Restarting command-channel server..."
+        try {
+          Stop-Process -Id $serverProcess.Id -Force -ErrorAction Stop
+        } catch {
+          Write-Host "WARN: could not stop server PID $($serverProcess.Id) cleanly."
+        }
+        Start-Sleep -Seconds 1
+        break
+      }
+    }
+
+    if ($serverProcess.HasExited -and -not $restartRequested) {
+      return $serverProcess.ExitCode
+    }
+  }
+}
+
 Write-Host "Control Tower helper v0"
 Write-Host "RepoRoot: $RepoRoot"
 Write-Host "Tower URL: $TowerUrl"
@@ -343,6 +449,8 @@ Write-Host ""
 if (-not $Start) {
   Write-Host "Port is free. To start the server in this window:"
   Write-Host "  .\scripts\start-control-tower.ps1 -Start"
+  Write-Host "Dev watch (auto-restart on Tower file changes):"
+  Write-Host "  .\scripts\start-control-tower.ps1 -Start -Watch -ForceStop -OpenBrowser"
   Write-Host "Or:"
   Write-Host "  npm run tower:start"
   Write-Host ""
@@ -356,11 +464,21 @@ if (-not $Start) {
 }
 
 Write-Host "Starting command-channel server (Ctrl+C to stop)..."
+if ($Watch) {
+  Write-Host "Watch mode enabled — server restarts when Tower code/config files change."
+} else {
+  Write-Host "Tip: add -Watch to auto-restart after Tower code changes."
+}
 Write-Host "Watch startup for: Local live bridge: available/unavailable"
 Write-Host ""
 
 Push-Location $RepoRoot
 try {
+  if ($Watch) {
+    $watchExit = Start-TowerWatchLoop -Root $RepoRoot -LocalPort $Port -OpenBrowserOnStart:$OpenBrowser
+    exit $watchExit
+  }
+
   if ($OpenBrowser) {
     Start-Job -ScriptBlock {
       param($Url)

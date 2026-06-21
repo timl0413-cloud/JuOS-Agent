@@ -35,6 +35,10 @@ const {
   renderTowerHtml,
   renderLocalLiveLandingHtml,
 } = require("../lib/command-channel-short-status-page");
+const {
+  recordTowerServerBuildMarker,
+  getTowerStaleCodeState,
+} = require("../lib/tower-server-build-marker");
 
 const LOCAL_LIVE_BRIDGE_ROUTES = new Set([
   "short-status",
@@ -59,6 +63,11 @@ const LOCAL_LIVE_ROUTE_ALIASES = {
 
 const HOST = process.env.COMMAND_CHANNEL_HOST || "127.0.0.1";
 const PORT = Number(process.env.COMMAND_CHANNEL_PORT || 8790);
+const LOCAL_DEV_SERVER = isLoopbackHost(HOST);
+const TOWER_STALE_CHECK_ENABLED =
+  LOCAL_DEV_SERVER && process.env.COMMAND_CHANNEL_TOWER_STALE_CHECK !== "0";
+
+const SERVER_BUILD_MARKER = recordTowerServerBuildMarker();
 
 const ROUTE_SCOPES = {
   "remote-jobs-collection-POST": "remote-jobs:create",
@@ -298,10 +307,14 @@ async function buildWatchStatusView(url, options = {}) {
 
 async function buildTowerStatusView(url, options = {}) {
   const jobs = await fetchJobsForStatus(url);
-  return buildTowerSummary(jobs, {
+  const tower = buildTowerSummary(jobs, {
     backend: getBackendStatus(),
     live_access: options.live_access,
   });
+  if (TOWER_STALE_CHECK_ENABLED) {
+    tower.stale_code = getTowerStaleCodeState();
+  }
+  return tower;
 }
 
 function requireAuth(req, res, route, method) {
@@ -362,6 +375,10 @@ async function handleRequest(req, res) {
         service: "TimOS-Agent Command Channel",
         version: loadPackageVersion(),
         backend: getBackendStatus(),
+        server_started_at: SERVER_BUILD_MARKER.server_started_at,
+        ...(TOWER_STALE_CHECK_ENABLED
+          ? { tower_stale_code: getTowerStaleCodeState() }
+          : {}),
       });
       return;
     }
