@@ -119,8 +119,19 @@ Packet types map to status categories: `pending_unclaimed`, `claimed_running`, `
 4. Optionally wire JOA to emit a GSync/JUB packet when `stranded_count > 0` (`--recovery-packets`).
 5. After worker completion, assistants read `result.summary` by job id — no terminal paste ([`no-paste-worker-loop-v0.md`](./no-paste-worker-loop-v0.md)).
 
+## Time-aware sweep
+
+For each status check, capture **now** and classify jobs by age (stranded, running-too-long, trigger-now):
+
+```powershell
+node scripts/command-channel-status.js --http --time-sweep --profile joa
+```
+
+See [`time-aware-status-sweep-v0.md`](./time-aware-status-sweep-v0.md).
+
 ## Related
 
+- Time-aware sweep: [`time-aware-status-sweep-v0.md`](./time-aware-status-sweep-v0.md)
 - No-paste loop: [`no-paste-worker-loop-v0.md`](./no-paste-worker-loop-v0.md)
 - Finalize paths: [`finalize-exact-path-sop.md`](./finalize-exact-path-sop.md)
 - Worker startup: `scripts/start-juos-worker.ps1`, `scripts/start-joa-worker-loop.ps1`, `scripts/start-worker-hubs.ps1`

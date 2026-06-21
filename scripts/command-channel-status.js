@@ -9,6 +9,10 @@ const {
   buildRecoveryCommand,
   STATUS_CATEGORIES,
 } = require("../lib/command-channel-status");
+const {
+  summarizeTimeSweep,
+  formatTimeSweepReport,
+} = require("../lib/command-channel-time-sweep");
 const { XIAOJU_TOKEN_NAME } = require("../lib/command-channel-auth");
 
 function loadLocalWorkerEnv() {
@@ -202,6 +206,7 @@ async function main() {
   const jobId = parseNamedArg("--job-id");
   const asJson = process.argv.includes("--json");
   const asPacket = process.argv.includes("--packet");
+  const timeSweep = process.argv.includes("--time-sweep");
   const recoveryOnly = process.argv.includes("--recovery");
   const recoveryPackets = process.argv.includes("--recovery-packets");
   const targetRoom = parseNamedArg("--target-room") || "room";
@@ -230,6 +235,7 @@ async function main() {
   });
 
   const summary = summarizeJobs(jobs);
+  const timeSummary = timeSweep ? summarizeTimeSweep(jobs) : null;
   const stranded = summary.buckets[STATUS_CATEGORIES.PENDING_UNCLAIMED];
 
   if (recoveryOnly || recoveryPackets) {
@@ -280,11 +286,22 @@ async function main() {
           mode,
           backend: mode === "local" ? getBackendStatus() : { backend: "http" },
           ...summary,
+          ...(timeSummary ? { time_sweep: timeSummary } : {}),
         },
         null,
         2
       )
     );
+    return;
+  }
+
+  if (timeSweep) {
+    const header =
+      mode === "http"
+        ? `Backend: http (${process.env.COMMAND_CHANNEL_URL || "https://juos.vercel.app/api/command-channel"})`
+        : `Backend: local (${JSON.stringify(getBackendStatus())})`;
+    console.log(formatTimeSweepReport(timeSummary, { style: recoveryStyle }));
+    console.log(header);
     return;
   }
 

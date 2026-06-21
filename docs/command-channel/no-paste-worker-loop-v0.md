@@ -102,6 +102,9 @@ node scripts/command-channel-status.js --http --profile joa --recovery
 
 # Full board
 node scripts/command-channel-status.js --http --profile joa
+
+# Time-aware sweep (captures now, classifies trigger-now / stranded / running-too-long)
+node scripts/command-channel-status.js --http --time-sweep --profile joa
 ```
 
 HTTP mode uses `XIAOJU_ACTION_TOKEN` or `config/auth.json` (`xiaoju-command-channel`). Read-only for status; no claim.
@@ -143,14 +146,25 @@ Then either start the loop (preferred) or claim one job explicitly:
 | `auto_run_requested` does not dispatch | Documented; loop claims approved jobs | Optional server-side queue worker (out of scope) |
 | Non-JOA lanes idle unless hubs started | `start-worker-hubs.ps1` | Per-lane activation playbook |
 
+## Time-aware sweep (v0)
+
+ChatGPT has no background timer. Whenever XiaoJu/JOA checks status, run the **time-aware sweep** so the check captures **now** and classifies delayed vs on-track vs trigger-now items:
+
+```powershell
+node scripts/command-channel-status.js --http --time-sweep --profile joa
+```
+
+See [`time-aware-status-sweep-v0.md`](./time-aware-status-sweep-v0.md) for categories, TimOS task compare rules, and **Station 4/5 setup triggers** (before sleep, Travel Mode, or leaving Station 1 > 2–3 hours).
+
 ## Recommended next step
 
-1. **Now:** Run `start-joa-worker-loop.ps1` on Station 1 before Travel Mode; assistants use no-paste lookup.
+1. **Now:** Run `start-joa-worker-loop.ps1` on Station 1 before Travel Mode; run time sweep before leaving; assistants use no-paste lookup.
 2. **Next:** Deploy Bridge Status to JuOS for phone/MacBook visibility ([`bridge-status-external-v0.md`](./bridge-status-external-v0.md)).
 3. **Then:** Always-on worker on Station 4/5 or first non-JOA lane activation when Finance/JuCore/Nova jobs need unattended claim.
 
 ## Related
 
+- Time-aware sweep: [`time-aware-status-sweep-v0.md`](./time-aware-status-sweep-v0.md)
 - Stranded detection: [`no-stranded-job-v0.md`](./no-stranded-job-v0.md)
 - Finalize path rules: [`finalize-exact-path-sop.md`](./finalize-exact-path-sop.md)
 - Bridge UI: [`bridge-status-ui-v0.md`](./bridge-status-ui-v0.md)

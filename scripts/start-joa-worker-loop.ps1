@@ -27,8 +27,9 @@ if ($NoCursorAgent) {
   $launcherArgs.NoCursorAgent = $true
 }
 
-Write-Host "JOA worker loop — persistent polling (no JobId required)"
+Write-Host "JOA worker loop - persistent polling (no JobId required)"
 Write-Host "Expected banner: Persistent polling hub active worker_profile=joa"
 Write-Host ""
 
-& (Join-Path $PSScriptRoot "start-juos-worker.ps1") @launcherArgs
+$workerLauncher = Join-Path $PSScriptRoot "start-juos-worker.ps1"
+& $workerLauncher @launcherArgs
