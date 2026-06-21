@@ -22,7 +22,14 @@ const {
   TOWER_EXECUTION_LABELS,
 } = require("../lib/command-channel-short-status-page");
 const { summarizeTimeSweep } = require("../lib/command-channel-time-sweep");
-const { buildLiveSourceMeta } = require("../lib/command-channel-live-jobs-source");
+const {
+  buildLiveSourceMeta,
+  fetchLiveJobsForDisplay,
+  httpListJobs,
+  mapListFetchError,
+  classifyHttpListFailure,
+  MISSING_LIST_AUTH_MESSAGE,
+} = require("../lib/command-channel-live-jobs-source");
 const { BATCH_STATES } = {
   BATCH_STATES: {
     COMPLETED: "completed",
@@ -81,7 +88,7 @@ function sampleClaimedJob(overrides = {}) {
 
 const TEST_NOW_MS = Date.parse("2026-06-21T11:05:00.000Z");
 
-function runTests() {
+async function runTests() {
   const results = [];
 
   const tags = parseTowerItemTags(
@@ -1028,6 +1035,176 @@ function runTests() {
     )
   );
 
+  const unauthorizedFailure = classifyHttpListFailure(
+    401,
+    "env:XIAOJU_ACTION_TOKEN"
+  );
+  results.push(
+    assertCase(
+      "401 Unauthorized maps to auth_unauthorized live status",
+      unauthorizedFailure.liveStatus === "auth_unauthorized" &&
+        !unauthorizedFailure.message.includes('{"error"'),
+      unauthorizedFailure.message
+    )
+  );
+  results.push(
+    assertCase(
+      "401 diagnostic names auth variable only",
+      unauthorizedFailure.message.includes("XIAOJU_ACTION_TOKEN") &&
+        !unauthorizedFailure.message.includes("Bearer"),
+      unauthorizedFailure.message
+    )
+  );
+
+  const missingAuthFailure = mapListFetchError(
+    { code: "auth_missing_list" },
+    null
+  );
+  results.push(
+    assertCase(
+      "missing list auth maps to auth_missing with variable names only",
+      missingAuthFailure.liveStatus === "auth_missing" &&
+        missingAuthFailure.message === MISSING_LIST_AUTH_MESSAGE &&
+        missingAuthFailure.message.includes("XIAOJU_ACTION_TOKEN") &&
+        missingAuthFailure.message.includes("xiaoju-command-channel"),
+      missingAuthFailure.message
+    )
+  );
+
+  const unauthorizedLiveSourceHtml = renderLiveSourceStatusHtml(
+    buildLiveSourceMeta({
+      status: "auth_unauthorized",
+      mode: "remote-http",
+      job_count: 0,
+      refreshed_at: "2026-06-21T12:30:00.000Z",
+      message: unauthorizedFailure.message,
+      setup: unauthorizedFailure.setup,
+    }),
+    true
+  );
+  results.push(
+    assertCase(
+      "401 live source renders auth invalid compact label",
+      unauthorizedLiveSourceHtml.includes("Live source: auth invalid") &&
+        unauthorizedLiveSourceHtml.includes("401 Unauthorized") &&
+        !unauthorizedLiveSourceHtml.includes('{"error"'),
+      unauthorizedLiveSourceHtml.slice(0, 140)
+    )
+  );
+
+  const savedEnv = {
+    XIAOJU_ACTION_TOKEN: process.env.XIAOJU_ACTION_TOKEN,
+    COMMAND_CHANNEL_URL: process.env.COMMAND_CHANNEL_URL,
+    COMMAND_CHANNEL_HTTP_URL: process.env.COMMAND_CHANNEL_HTTP_URL,
+  };
+  delete process.env.XIAOJU_ACTION_TOKEN;
+  delete process.env.COMMAND_CHANNEL_URL;
+  delete process.env.COMMAND_CHANNEL_HTTP_URL;
+
+  process.env.XIAOJU_ACTION_TOKEN = "remote-test-token";
+  process.env.COMMAND_CHANNEL_URL = "https://example.test/api/command-channel";
+
+  let remoteFetchRejected401 = false;
+  try {
+    await httpListJobs(
+      {},
+      {
+        loadEnv: false,
+        tokenResult: { token: "test-token-not-real", source: "env:XIAOJU_ACTION_TOKEN" },
+        baseUrl: "https://example.test/api/command-channel",
+        fetchImpl: async () => ({
+          ok: false,
+          status: 401,
+          text: async () => JSON.stringify({ error: "Unauthorized" }),
+        }),
+      }
+    );
+  } catch (err) {
+    remoteFetchRejected401 =
+      err.code === "auth_unauthorized" &&
+      err.liveStatus === "auth_unauthorized" &&
+      !String(err.message).includes('{"error"');
+  }
+
+  results.push(
+    assertCase(
+      "httpListJobs 401 throws auth_unauthorized not raw JSON message",
+      remoteFetchRejected401,
+      "expected auth_unauthorized throw"
+    )
+  );
+
+  const remote401Display = await fetchLiveJobsForDisplay(
+    {},
+    {
+      loadEnv: false,
+      forceRemote: true,
+      fetchImpl: async () => ({
+        ok: false,
+        status: 401,
+        text: async () => JSON.stringify({ error: "Unauthorized" }),
+      }),
+    }
+  );
+  results.push(
+    assertCase(
+      "remote 401 live source keeps zero jobs with auth_unauthorized status",
+      remote401Display.jobs.length === 0 &&
+        remote401Display.live_source.status === "auth_unauthorized" &&
+        !String(remote401Display.live_source.message).includes('{"error"'),
+      `${remote401Display.live_source.status} · ${remote401Display.live_source.message}`
+    )
+  );
+
+  process.env.XIAOJU_ACTION_TOKEN = "remote-test-token";
+  process.env.COMMAND_CHANNEL_URL = "https://example.test/api/command-channel";
+  const connectedDisplay = await fetchLiveJobsForDisplay(
+    {},
+    {
+      loadEnv: false,
+      forceRemote: true,
+      fetchImpl: async () => ({
+        ok: true,
+        status: 200,
+        text: async () =>
+          JSON.stringify({
+            jobs: [sampleClaimedJob()],
+          }),
+      }),
+    }
+  );
+  const connectedLiveSourceHtml = renderLiveSourceStatusHtml(
+    connectedDisplay.live_source,
+    true,
+    { compact: true }
+  );
+  results.push(
+    assertCase(
+      "successful live source renders connected with job count",
+      connectedDisplay.live_source.status === "connected" &&
+        connectedDisplay.live_source.job_count === 1 &&
+        connectedLiveSourceHtml.includes("Live source: connected") &&
+        connectedLiveSourceHtml.includes("1 job(s)"),
+      connectedLiveSourceHtml
+    )
+  );
+
+  if (savedEnv.XIAOJU_ACTION_TOKEN === undefined) {
+    delete process.env.XIAOJU_ACTION_TOKEN;
+  } else {
+    process.env.XIAOJU_ACTION_TOKEN = savedEnv.XIAOJU_ACTION_TOKEN;
+  }
+  if (savedEnv.COMMAND_CHANNEL_URL === undefined) {
+    delete process.env.COMMAND_CHANNEL_URL;
+  } else {
+    process.env.COMMAND_CHANNEL_URL = savedEnv.COMMAND_CHANNEL_URL;
+  }
+  if (savedEnv.COMMAND_CHANNEL_HTTP_URL === undefined) {
+    delete process.env.COMMAND_CHANNEL_HTTP_URL;
+  } else {
+    process.env.COMMAND_CHANNEL_HTTP_URL = savedEnv.COMMAND_CHANNEL_HTTP_URL;
+  }
+
   return results;
 }
 
@@ -1045,6 +1222,6 @@ function printResults(results) {
   return failed;
 }
 
-const results = runTests();
+const results = await runTests();
 const failed = printResults(results);
 process.exit(failed > 0 ? 1 : 0);

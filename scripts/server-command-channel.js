@@ -282,7 +282,9 @@ function buildStatusFilter(url) {
 }
 
 async function fetchJobsForStatus(url) {
-  return fetchLiveJobsForDisplay(buildStatusFilter(url));
+  return fetchLiveJobsForDisplay(buildStatusFilter(url), {
+    source: "local_server",
+  });
 }
 
 async function buildBridgeStatusView(url, options = {}) {
