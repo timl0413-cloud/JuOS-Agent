@@ -15,12 +15,14 @@ const {
   deriveTowerExecutionHeader,
   deriveRunningMotionState,
   renderLiveRunningStatusCell,
+  renderLiveSourceStatusHtml,
   buildSampleTowerSummary,
   renderTowerHtml,
   splitPlannedManifestRows,
   TOWER_EXECUTION_LABELS,
 } = require("../lib/command-channel-short-status-page");
 const { summarizeTimeSweep } = require("../lib/command-channel-time-sweep");
+const { buildLiveSourceMeta } = require("../lib/command-channel-live-jobs-source");
 const { BATCH_STATES } = {
   BATCH_STATES: {
     COMPLETED: "completed",
@@ -577,11 +579,11 @@ function runTests() {
       },
     ],
   };
+  const unmatchedNowMs = Date.parse("2026-06-21T12:05:00.000Z");
   const unmatchedSummary = summarizeJobs([smokeTestJob]);
   const unmatchedTimeSummary = summarizeTimeSweep([smokeTestJob], {
     nowMs: unmatchedNowMs,
   });
-  const unmatchedNowMs = Date.parse("2026-06-21T12:05:00.000Z");
   const unmatchedQueue = buildCurrentQueueFromManifest(
     unmatchedManifest,
     unmatchedSummary,
@@ -792,6 +794,185 @@ function runTests() {
       )
     );
   }
+
+  const unmatchedManifestForStates = {
+    batch_name: "state visibility test",
+    items: [
+      {
+        order: 1,
+        key: "unrelated_only",
+        task_title: "Unrelated planned task",
+        purpose: "No match",
+        intended_status: "pending",
+        linked_job_ids: [],
+      },
+    ],
+  };
+  const stateTestContext = {
+    runningTooLongIds: new Set(),
+    urgentReviewIds: new Set(),
+    firstStrandedJobId: null,
+    formatBatchTaskEntry,
+    jobTitleFn: (job) => job.plan_summary || job.id,
+    BATCH_STATES,
+  };
+  const stateTestNowMs = Date.parse("2026-06-21T12:30:00.000Z");
+
+  const awaitingApprovalJob = {
+    id: "aa111111-1111-4111-8111-111111111111",
+    status: "pending",
+    target_worker_profile: "joa",
+    repo_ref: "TimOS-Agent",
+    requested_by: "xiaoju",
+    task_type: "supervised_implement",
+    plan_summary: "Smoke test awaiting approval visibility",
+    approval_required: true,
+    approval_status: "pending",
+    created_at: "2026-06-21T12:25:00.000Z",
+    updated_at: "2026-06-21T12:25:00.000Z",
+    errors: [],
+  };
+  const awaitingSummary = summarizeJobs([awaitingApprovalJob]);
+  const awaitingTimeSummary = summarizeTimeSweep([awaitingApprovalJob], {
+    nowMs: stateTestNowMs,
+  });
+  const awaitingQueue = buildCurrentQueueFromManifest(
+    unmatchedManifestForStates,
+    awaitingSummary,
+    awaitingTimeSummary,
+    "needs_attention",
+    {
+      jobs: [awaitingApprovalJob],
+      generated_at: "2026-06-21T12:30:00.000Z",
+      nowMs: stateTestNowMs,
+    }
+  );
+  const awaitingRow = (awaitingQueue.live_only_rows || []).find(
+    (row) => row.id === awaitingApprovalJob.id
+  );
+  results.push(
+    assertCase(
+      "unmatched awaiting_approval job appears in live-only rows",
+      awaitingRow?.row_source === "dynamic_live" &&
+        awaitingRow?.batch_state === BATCH_STATES.PENDING &&
+        awaitingRow?.tim_action_needed === true,
+      `${awaitingRow?.row_source || "—"} · ${awaitingRow?.batch_state || "—"}`
+    )
+  );
+
+  const approvedPendingJob = {
+    id: "bb222222-2222-4222-8222-222222222222",
+    status: "pending",
+    target_worker_profile: "joa",
+    repo_ref: "TimOS-Agent",
+    requested_by: "xiaoju",
+    task_type: "supervised_implement",
+    plan_summary: "Smoke test approved pending claim visibility",
+    approval_required: true,
+    approval_status: "approved",
+    approved_at: "2026-06-21T12:26:00.000Z",
+    created_at: "2026-06-21T12:25:30.000Z",
+    updated_at: "2026-06-21T12:26:00.000Z",
+    errors: [],
+  };
+  const approvedSummary = summarizeJobs([approvedPendingJob]);
+  const approvedTimeSummary = summarizeTimeSweep([approvedPendingJob], {
+    nowMs: stateTestNowMs,
+  });
+  const approvedQueue = buildCurrentQueueFromManifest(
+    unmatchedManifestForStates,
+    approvedSummary,
+    approvedTimeSummary,
+    "needs_attention",
+    {
+      jobs: [approvedPendingJob],
+      generated_at: "2026-06-21T12:30:00.000Z",
+      nowMs: stateTestNowMs,
+    }
+  );
+  const approvedRow = (approvedQueue.live_only_rows || []).find(
+    (row) => row.id === approvedPendingJob.id
+  );
+  results.push(
+    assertCase(
+      "unmatched pending/approved job appears in live-only rows",
+      approvedRow?.row_source === "dynamic_live" &&
+        approvedRow?.batch_state === BATCH_STATES.PENDING,
+      `${approvedRow?.row_source || "—"} · ${approvedRow?.status_label || "—"}`
+    )
+  );
+
+  const unavailableLiveSourceHtml = renderLiveSourceStatusHtml(
+    buildLiveSourceMeta({
+      status: "fetch_error",
+      mode: "remote-http",
+      job_count: 0,
+      refreshed_at: "2026-06-21T12:30:00.000Z",
+      message: "remote-jobs list failed (503)",
+      setup: "Restart npm run server:command-channel from a token-loaded shell.",
+    }),
+    true
+  );
+  const unavailableTowerHtml = renderTowerHtml({
+    data_mode: "live",
+    live_access: "local_loopback",
+    swept_at: "2026-06-21T12:30:00.000Z",
+    live_source: buildLiveSourceMeta({
+      status: "fetch_error",
+      mode: "remote-http",
+      job_count: 0,
+      refreshed_at: "2026-06-21T12:30:00.000Z",
+      message: "remote-jobs list failed (503)",
+      setup: "Restart npm run server:command-channel from a token-loaded shell.",
+    }),
+    motion: {
+      system_state: "idle",
+      running_count: 0,
+      stranded_count: 0,
+      awaiting_approval_count: 0,
+      pending_or_stranded_count: 0,
+      completed_needs_review_count: 0,
+      review_history_count: 0,
+      failed_count: 0,
+      actionable_attention_count: 0,
+    },
+    running: [],
+    next_up: { owner: "none", action: "No queued work" },
+    waiting_on: "none",
+    current_focus: "",
+    lane_readiness_summary: "",
+    parallel_capacity: {},
+    lane_registry: [],
+    lanes: [],
+    activity_log: { events: [], event_count: 0 },
+    current_queue: buildCurrentQueueFromManifest(
+      unmatchedManifestForStates,
+      summarizeJobs([]),
+      summarizeTimeSweep([], { nowMs: stateTestNowMs }),
+      "idle",
+      {
+        jobs: [],
+        generated_at: "2026-06-21T12:30:00.000Z",
+        nowMs: stateTestNowMs,
+      }
+    ),
+  });
+  results.push(
+    assertCase(
+      "live source unavailable renders explicit warning",
+      unavailableLiveSourceHtml.includes("Live source: fetch error") &&
+        unavailableLiveSourceHtml.includes("live-source-unavailable"),
+      unavailableLiveSourceHtml.slice(0, 120)
+    )
+  );
+  results.push(
+    assertCase(
+      "tower HTML shows live source warning when fetch fails",
+      unavailableTowerHtml.includes("Live source: fetch error") &&
+        unavailableTowerHtml.includes("not a substitute for live jobs"),
+      "missing live source warning in tower HTML"
+    )
+  );
 
   return results;
 }

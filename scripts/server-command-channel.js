@@ -39,6 +39,12 @@ const {
   recordTowerServerBuildMarker,
   getTowerStaleCodeState,
 } = require("../lib/tower-server-build-marker");
+const {
+  loadLocalWorkerEnv,
+  fetchLiveJobsForDisplay,
+} = require("../lib/command-channel-live-jobs-source");
+
+loadLocalWorkerEnv();
 
 const LOCAL_LIVE_BRIDGE_ROUTES = new Set([
   "short-status",
@@ -276,11 +282,11 @@ function buildStatusFilter(url) {
 }
 
 async function fetchJobsForStatus(url) {
-  return listJobs(buildStatusFilter(url));
+  return fetchLiveJobsForDisplay(buildStatusFilter(url));
 }
 
 async function buildBridgeStatusView(url, options = {}) {
-  const jobs = await fetchJobsForStatus(url);
+  const { jobs, live_source } = await fetchJobsForStatus(url);
   const summary = buildBridgeStatusSummary(jobs, {
     backend: getBackendStatus(),
     live_access: options.live_access,
@@ -290,26 +296,32 @@ async function buildBridgeStatusView(url, options = {}) {
     summary,
     backend: getBackendStatus(),
     live_access: options.live_access,
+    live_source,
   });
   return {
     ...viewModel,
     control_tower: controlTower.compact,
+    live_source,
   };
 }
 
 async function buildWatchStatusView(url, options = {}) {
-  const jobs = await fetchJobsForStatus(url);
-  return buildWatchSummary(jobs, {
+  const { jobs, live_source } = await fetchJobsForStatus(url);
+  const watch = buildWatchSummary(jobs, {
     backend: getBackendStatus(),
     live_access: options.live_access,
+    live_source,
   });
+  watch.live_source = live_source;
+  return watch;
 }
 
 async function buildTowerStatusView(url, options = {}) {
-  const jobs = await fetchJobsForStatus(url);
+  const { jobs, live_source } = await fetchJobsForStatus(url);
   const tower = buildTowerSummary(jobs, {
     backend: getBackendStatus(),
     live_access: options.live_access,
+    live_source,
   });
   if (TOWER_STALE_CHECK_ENABLED) {
     tower.stale_code = getTowerStaleCodeState();
