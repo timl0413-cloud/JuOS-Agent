@@ -181,8 +181,8 @@ function runTests() {
   );
   results.push(
     assertCase(
-      "matched running row status label uses Ongoing or Running",
-      /^(Ongoing|Running)/.test(String(row?.status_label || "").split(" · live")[0]),
+      "matched running row status label uses Running · live",
+      String(row?.status_label || "") === "Running · live",
       row?.status_label || "—"
     )
   );
@@ -235,10 +235,24 @@ function runTests() {
   );
   results.push(
     assertCase(
-      "unmatched intended_status=running shows Next planned label not running",
-      String(runningUnmatchedRow?.status_label || "").includes("Next") &&
-        !String(runningUnmatchedRow?.status_label || "").toLowerCase().includes("running"),
+      "unmatched intended_status=running shows Planned / not launched label",
+      String(runningUnmatchedRow?.status_label || "").includes("Planned / not launched") &&
+        !String(runningUnmatchedRow?.status_label || "").toLowerCase().includes("in queue"),
       runningUnmatchedRow?.status_label || "—"
+    )
+  );
+  results.push(
+    assertCase(
+      "unmatched manifest row includes no live job linked hint",
+      runningUnmatchedRow?.link_hint === "No live job linked",
+      runningUnmatchedRow?.link_hint || "—"
+    )
+  );
+  results.push(
+    assertCase(
+      "matched manifest row includes linked job hint",
+      row?.link_hint === `Linked job: ${claimedJob.id}`,
+      row?.link_hint || "—"
     )
   );
 
@@ -452,7 +466,7 @@ function runTests() {
   );
   results.push(
     assertCase(
-      "claimed live job header says Running worker active",
+      "claimed live job header says Running",
       runningQueue.execution_header?.label === TOWER_EXECUTION_LABELS.RUNNING,
       runningQueue.execution_header?.label || "—"
     )
@@ -675,10 +689,52 @@ function runTests() {
   });
   results.push(
     assertCase(
-      "tower HTML renders live command-channel jobs subsection",
+      "tower HTML renders live command-channel jobs inline when present",
       unmatchedTowerHtml.includes("Live command-channel jobs") &&
         unmatchedTowerHtml.includes("batch-live-only"),
       "missing live subsection or batch-live-only class"
+    )
+  );
+  results.push(
+    assertCase(
+      "tower HTML renders planned batch items immediately after status strip",
+      (() => {
+        const stripIdx = unmatchedTowerHtml.indexOf("tower-execution-strip");
+        const plannedIdx = unmatchedTowerHtml.indexOf("Planned Batch Items");
+        return stripIdx >= 0 && plannedIdx > stripIdx;
+      })(),
+      "planned items not after execution strip"
+    )
+  );
+  results.push(
+    assertCase(
+      "idle tower HTML omits empty live jobs block",
+      !renderTowerHtml({
+        data_mode: "sample",
+        swept_at: "2026-06-21T11:05:00.000Z",
+        motion: {
+          system_state: "needs_attention",
+          running_count: 0,
+          stranded_count: 0,
+          awaiting_approval_count: 0,
+          pending_or_stranded_count: 0,
+          completed_needs_review_count: 0,
+          review_history_count: 0,
+          failed_count: 0,
+          actionable_attention_count: 0,
+        },
+        running: [],
+        next_up: { owner: "none", action: "No queued work" },
+        waiting_on: "none",
+        current_focus: "",
+        lane_readiness_summary: "",
+        parallel_capacity: {},
+        lane_registry: [],
+        lanes: [],
+        activity_log: { events: [], event_count: 0 },
+        current_queue: idleQueue,
+      }).includes("(no live command-channel jobs right now)"),
+      "empty live jobs placeholder still rendered"
     )
   );
   results.push(
@@ -687,15 +743,6 @@ function runTests() {
       unmatchedTowerHtml.includes("Planned Batch Items") &&
         unmatchedTowerHtml.includes("Tower Current Batch"),
       "missing planned batch or container heading"
-    )
-  );
-  results.push(
-    assertCase(
-      "tower HTML includes IA explainer line",
-      unmatchedTowerHtml.includes(
-        "Planned rows show the batch plan. Live command-channel jobs above show what is actually running."
-      ),
-      "missing IA explainer"
     )
   );
   results.push(
@@ -901,6 +948,13 @@ function runTests() {
       `${approvedRow?.row_source || "—"} · ${approvedRow?.status_label || "—"}`
     )
   );
+  results.push(
+    assertCase(
+      "unmatched pending/approved job shows Queued / pending live label",
+      String(approvedRow?.status_label || "").includes("Queued / pending live"),
+      approvedRow?.status_label || "—"
+    )
+  );
 
   const unavailableLiveSourceHtml = renderLiveSourceStatusHtml(
     buildLiveSourceMeta({
@@ -967,10 +1021,10 @@ function runTests() {
   );
   results.push(
     assertCase(
-      "tower HTML shows live source warning when fetch fails",
+      "tower HTML shows live source warning in strip when fetch fails",
       unavailableTowerHtml.includes("Live source: fetch error") &&
-        unavailableTowerHtml.includes("not a substitute for live jobs"),
-      "missing live source warning in tower HTML"
+        unavailableTowerHtml.includes("tower-execution-strip"),
+      "missing live source warning in tower HTML strip"
     )
   );
 
