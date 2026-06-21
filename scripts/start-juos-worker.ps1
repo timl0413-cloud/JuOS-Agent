@@ -21,7 +21,7 @@ if (-not $Workspace) {
     "nova-reading" { $Workspace = "C:\projects\TimOS-Agent" }
     "finance" { $Workspace = "C:\projects\TimFinance" }
     "ob" { $Workspace = "C:\projects\TimFinance" }
-    "gsync" { $Workspace = "C:\projects\TimFinance" }
+    "gsync" { $Workspace = "C:\projects\juos-knowledge-vault" }
     "jucore" { $Workspace = "C:\projects\JuCore" }
     "nova" { $Workspace = "C:\projects\NovaUniverse" }
     "spacea" { $Workspace = "C:\projects\TimOS-Agent" }

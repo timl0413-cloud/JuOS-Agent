@@ -19,14 +19,21 @@ Every page shows a top badge: **LIVE DATA** or **SAMPLE DATA ONLY**. See [`local
 
 ## Local live browser (Station 1 / 4 / 5)
 
-Start the server from a **token-loaded supervisor shell**, then open in browser — no Bearer header needed on loopback:
+**One helper command** (port + auth check, no token printing):
+
+```powershell
+.\scripts\start-control-tower.ps1
+.\scripts\start-control-tower.ps1 -Start -OpenBrowser
+```
+
+Or manually from a **token-loaded supervisor shell**, then open in browser — no Bearer header needed on loopback:
 
 ```powershell
 npm run server:command-channel
 start http://127.0.0.1:8790/tower
 ```
 
-Default bind: `http://127.0.0.1:8790`
+Default bind: `http://127.0.0.1:8790`. See [`local-live-tower-v0.md`](./local-live-tower-v0.md) for LIVE vs SETUP and EADDRINUSE handling.
 
 ## HTTP routes
 

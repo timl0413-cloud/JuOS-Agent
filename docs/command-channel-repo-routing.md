@@ -6,6 +6,7 @@ See also:
 
 - [`command-channel-room-capabilities.yaml`](./command-channel-room-capabilities.yaml) — room/GPT capability registry
 - [`command-channel/room-lane-identity-v0.md`](./command-channel/room-lane-identity-v0.md) — room/lane identity registry (`source_room`, `active_lane`)
+- [`command-channel/gsync-direct-execution-path-v0.md`](./command-channel/gsync-direct-execution-path-v0.md) — GSync direct development route
 - [`bridge/xiaoju-command-channel.md`](./bridge/xiaoju-command-channel.md) — no-paste flow and security boundary
 - [`bridge/worker-routing-contract.md`](./bridge/worker-routing-contract.md) — coordinator routing fields and algorithm
 
@@ -51,11 +52,20 @@ These profiles have confirmed repo/workspace contracts in TimOS-Agent today:
 | `joa` | `TimOS-Agent` | `C:\projects\TimOS-Agent` | JOA worker hub; supervised implement / approved finalize |
 | `finance` | `TimFinance` | `C:\projects\TimFinance` | Finance worker hub |
 | `jucore` | `JuCore` | `C:\projects\JuCore` | JuCore worker hub (Gsync local scaffold); supervised implement / approved finalize |
+| `gsync` | `juos-knowledge-vault` | `C:\projects\juos-knowledge-vault` | GSync direct dev; writes restricted to `gsync/**` — see [`gsync-direct-execution-path-v0.md`](./command-channel/gsync-direct-execution-path-v0.md) |
 | `nova` | `NovaUniverse` | `C:\projects\NovaUniverse` | Nova worker hub; inspect / supervised implement / approved finalize |
 | `spacea` | per job (`STUF`, `Kenkoup`, `Primoo`, `_ClientOps`) | per job (see below) | SpaceA bridge; multi-target local Cursor routing |
 | `ministry` | per job (`IMPACT`, `BETHANY`, `GFPF`, `GospelFilm`, `_MinistryOps`) | per job (see below) | MinistryOps bridge; multi-target local Cursor routing |
 
 Additional coordinator profiles (e.g. `cloud-readonly`, `nova-reading`) use synced repo sources or read-only task types; see `lib/command-channel-core.js` and `bridge/worker-routing-contract.md`.
+
+### Scoped write profile (`gsync`)
+
+Profile `gsync` uses a single workspace with **subdirectory write enforcement** (`gsync/**`) defined in `config/workspace-targets.json`. The worker rejects supervised jobs and `approved_finalize` allowlists that touch paths outside that scope.
+
+| Profile | Workspace | Allowed write scope |
+|---------|-----------|---------------------|
+| `gsync` | `C:\projects\juos-knowledge-vault` | `gsync/**` only |
 
 ### Multi-workspace bridge profiles (`spacea`, `ministry`)
 
@@ -83,7 +93,7 @@ Rooms that **may** have command-channel Actions when configured:
 | Room | Action-capable | Repo/profile support |
 |------|----------------|----------------------|
 | XiaoJu | yes (primary) | Any valid task target; typically `joa`, `finance`, `jucore`, `nova`, `spacea`, or `ministry` |
-| Gsync | if configured | Local scaffold via `jucore` + `JuCore` when hub is running; may also target other confirmed profiles |
+| Gsync | if configured | Direct dev via `gsync` + `juos-knowledge-vault` (`gsync/**` writes); JuCore scaffold via `jucore` when hub running |
 | FA | if configured | Depends on task target and available profiles |
 | JOB | if configured | Depends on task target and available profiles |
 | Core | if configured | Depends on task target and available profiles — **no dedicated repo yet** |
@@ -137,6 +147,42 @@ When additional repos exist beyond the local JuCore scaffold, add worker profile
   "risk_level": "low",
   "auto_run_requested": true,
   "prompt": "Task description here.",
+  "approval_required": true
+}
+```
+
+### Supervised implement (juos-knowledge-vault via gsync profile)
+
+```json
+{
+  "requested_by": "gsync",
+  "source_room": "GSync",
+  "active_lane": "gsync-dev",
+  "target_worker_profile": "gsync",
+  "repo_ref": "juos-knowledge-vault",
+  "workspace_ref": "C:\\projects\\juos-knowledge-vault",
+  "task_type": "supervised_implement",
+  "risk_level": "low",
+  "auto_run_requested": true,
+  "prompt": "Task description here — changes under gsync/ only.",
+  "approval_required": true
+}
+```
+
+### Inspect-only (juos-knowledge-vault via gsync profile)
+
+```json
+{
+  "requested_by": "gsync",
+  "source_room": "GSync",
+  "active_lane": "gsync-dev",
+  "target_worker_profile": "gsync",
+  "repo_ref": "juos-knowledge-vault",
+  "workspace_ref": "C:\\projects\\juos-knowledge-vault",
+  "task_type": "inspect_only",
+  "risk_level": "low",
+  "auto_run_requested": true,
+  "prompt": "Read-only inspect of workspace connectivity and gsync/ layout.",
   "approval_required": true
 }
 ```
@@ -248,13 +294,13 @@ Use this after wiring a room's Action or changing routing policy. Goal: prove en
 4. **Cursor result completed** — Worker finishes; poll `GET /remote-jobs/{id}` until `status: completed` with a result summary.
 5. **No file changes** — Confirm `inspect_only` produced read-only output; working tree in the target repo is unchanged.
 
-Local hub startup (reference only): `scripts/start-worker-hubs.ps1` for `joa`, `finance`, `jucore`, `nova`, `spacea`, and `ministry` hubs.
+Local hub startup (reference only): `scripts/start-worker-hubs.ps1` for `joa`, `finance`, `jucore`, `gsync`, `nova`, `spacea`, and `ministry` hubs.
 
 ## Related scripts
 
 | Script | Purpose |
 |--------|---------|
-| `scripts/start-worker-hubs.ps1` | Launch JOA, Finance, JuCore, Nova, SpaceA, and Ministry persistent hubs |
+| `scripts/start-worker-hubs.ps1` | Launch JOA, Finance, JuCore, GSync, Nova, SpaceA, and Ministry persistent hubs |
 | `scripts/start-juos-worker-hub.ps1` | Multi-profile poll loop (dev / extended profiles) |
 | `scripts/command-channel-worker.js` | Worker poll, claim, Cursor handoff |
 | `scripts/command-channel-smoke-test.js` | Local coordinator contract smoke test |

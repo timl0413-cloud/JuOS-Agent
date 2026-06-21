@@ -43,7 +43,8 @@ Tim approves jobs
 | **Finance / JFA** | `JFA` | `finance-dev` | `finance` | `C:\projects\TimFinance` | **Ready to test** | **Slot 2–3 candidate** |
 | **SpaceA** | `SpaceA` | `spacea-bridge` | `spacea` | per job | **Ready to test** | Slot 3 when hub runs |
 | **MinistryOps** | `MinistryOps` | `ministry-bridge` | `ministry` | per job | **Ready to test** | Slot 3 when hub runs |
-| **GSync / JuCore** | `GSync` | `gsync-registry` | `jucore` | `C:\projects\JuCore` | **Ready to test** | Separate JuCore lane |
+| **GSync (direct dev)** | `GSync` | `gsync-dev` | `gsync` | `C:\projects\juos-knowledge-vault` | **Ready to test** | Writes `gsync/**` only — [gsync-direct-execution-path-v0.md](./gsync-direct-execution-path-v0.md) |
+| **GSync / JuCore** | `GSync` | `gsync-registry` | `jucore` | `C:\projects\JuCore` | **Ready to test** | Separate JuCore scaffold lane |
 | **Station 4 / 5** | — | — | `joa` (host) | TimOS-Agent host | **Pending setup** | Moves JOA off Station 1 |
 | **JUB / OB** | `JUB` | `jub-coordination` | _(none)_ | GSync packets only | **Blocked** | Not a writer lane in v0 |
 | **JEX** | `JEX` | `jex-handoff` | _(none)_ | handoff only | **Pending setup** | No worker profile yet |

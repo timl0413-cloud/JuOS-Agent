@@ -49,7 +49,8 @@ To activate a local copy after Tim approval: copy `room-lanes.example.json` → 
 |---------|--------------|-------------|-------------|-------------|---------------------|
 | `joa` | JOA | JOA | `joa-dev` | **active** | `joa` |
 | `jub` | JUB / OB | JUB | `jub-coordination` | **pending** | _(none — GSync publish only)_ |
-| `gsync` | GSync | GSync | `gsync-registry` | **active** | `jucore` (when hub running) |
+| `gsync` | GSync | GSync | `gsync-dev` | **ready to test** | `gsync` (direct dev in `juos-knowledge-vault`) |
+| `gsync` | GSync | GSync | `gsync-registry` | **active** | `jucore` (JuCore scaffold when hub running) |
 | `novabridge` | NB / NovaBridge | NovaBridge | `nova-dev` | **pending** | `nova` |
 | `jex` | JEX | JEX | `jex-handoff` | **pending** | _(none in v0)_ |
 | `spacea` | SpaceA | SpaceA | `spacea-bridge` | **active** | `spacea` |
@@ -62,7 +63,7 @@ Full field definitions (paths, guardrails, templates): [`config/room-lanes.examp
 
 1. Open the room's **Room Identity Card** ([template](../../templates/command-channel/room-identity-card.md)) or the lane row above.
 2. For **JUB**: load GSync accepted packets (`gsync/packets/accepted/`); publish/consume via packet IDs — not JOA dev identity.
-3. For **GSync**: registry + optional `jucore` jobs against `JuCore`; `requested_by: gsync`.
+3. For **GSync**: direct development via `target_worker_profile: gsync`, workspace `juos-knowledge-vault`, writes under `gsync/**`; registry + optional `jucore` jobs against `JuCore`; `requested_by: gsync`.
 4. For **NovaBridge**: use `target_worker_profile: nova` and `source_room: NovaBridge` when lane is approved; until then, document-only.
 5. For **JOA**: only TimOS-Agent scoped work with `target_worker_profile: joa`.
 

@@ -71,7 +71,8 @@ Readiness categories: **Active now** · **Ready to test** · **Pending setup** �
 | Finance / JFA | `JFA` | `finance-dev` | `finance` | Ready to test | no | Start `finance` hub + smoke test |
 | SpaceA | `SpaceA` | `spacea-bridge` | `spacea` | Ready to test | no | Per-job repo_ref + workspace_ref |
 | MinistryOps | `MinistryOps` | `ministry-bridge` | `ministry` | Ready to test | no | Per-job repo_ref + workspace_ref |
-| GSync / JuCore | `GSync` | `gsync-registry` | `jucore` | Ready to test | no | Registry active; hub when running |
+| GSync (direct dev) | `GSync` | `gsync-dev` | `gsync` | Ready to test | no | `juos-knowledge-vault`; writes `gsync/**` only — see [gsync-direct-execution-path-v0.md](../../docs/command-channel/gsync-direct-execution-path-v0.md) |
+| GSync / JuCore scaffold | `GSync` | `gsync-registry` | `jucore` | Ready to test | no | JuCore scaffold when hub running |
 | Station 4 / 5 | — | — | `joa` (host) | Pending setup | no | JOA always-on host bootstrap |
 | JUB | `JUB` | `jub-coordination` | _(none)_ | Blocked | no | GSync publish only |
 | JEX | `JEX` | `jex-handoff` | _(none)_ | Pending setup | no | Handoff only |
@@ -100,6 +101,17 @@ target_worker_profile: nova
 repo_ref: NovaUniverse
 workspace_ref: C:\projects\NovaUniverse
 requested_by: nova
+```
+
+**GSync direct development example:**
+
+```yaml
+source_room: GSync
+active_lane: gsync-dev
+target_worker_profile: gsync
+repo_ref: juos-knowledge-vault
+workspace_ref: C:\projects\juos-knowledge-vault
+requested_by: gsync
 ```
 
 **Finance example:**

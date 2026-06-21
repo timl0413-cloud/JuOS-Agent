@@ -21,7 +21,7 @@ function Get-WorkspaceForProfile {
     "nova-reading" { return "C:\projects\TimOS-Agent" }
     "finance" { return "C:\projects\TimFinance" }
     "ob" { return "C:\projects\TimFinance" }
-    "gsync" { return "C:\projects\TimFinance" }
+    "gsync" { return "C:\projects\juos-knowledge-vault" }
     "jucore" { return "C:\projects\JuCore" }
     "nova" { return "C:\projects\NovaUniverse" }
     "spacea" { return "C:\projects\TimOS-Agent" }

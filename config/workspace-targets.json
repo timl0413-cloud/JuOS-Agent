@@ -35,6 +35,27 @@
         "skipped_due_to_guardrails"
       ]
     },
+    "gsync": {
+      "workspace_root": "C:\\projects\\juos-knowledge-vault",
+      "allowed_write_scope": "gsync/**",
+      "guardrails": [
+        "writes restricted to gsync/** only — paths outside are rejected",
+        "GSync owns GSync domain development; JOA does not implement gsync content",
+        "approval_required true for all write jobs",
+        "no commit or push unless Tim explicitly approves approved_finalize",
+        "no auth, schema, or protected-value changes",
+        "no JuCore activation from this lane"
+      ],
+      "result_report_fields": [
+        "workspace_touched",
+        "files_changed",
+        "what_changed",
+        "risks",
+        "check_or_preview_result",
+        "what_tim_needs_to_review",
+        "skipped_due_to_guardrails"
+      ]
+    },
     "ministry": {
       "blocked_parent": "C:\\projects\\MinistryOps",
       "normal_targets": [

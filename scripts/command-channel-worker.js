@@ -15,10 +15,13 @@ const {
 } = require("../lib/command-channel-core");
 const {
   isMultiWorkspaceProfile,
+  isScopedWriteProfile,
   validateMultiWorkspaceJob,
   resolveExecutionWorkspaceRef,
   getResultReportContract,
   getProfileGuardrails,
+  getScopedWritePrefix,
+  validateWriteScopePaths,
 } = require("../lib/workspace-target-registry");
 const { executeCloudReadonlyJob } = require("../lib/cloud-readonly-worker");
 
@@ -501,8 +504,45 @@ function buildProfileGuardrailPromptSection(workerProfile) {
   return ["Profile guardrails:", ...guardrails.map((item) => `- ${item}`)];
 }
 
+function buildScopedWritePromptSection(workerProfile) {
+  if (!isScopedWriteProfile(workerProfile)) {
+    return [];
+  }
+
+  const prefix = getScopedWritePrefix(workerProfile);
+  if (!prefix) {
+    return [];
+  }
+
+  return [
+    "Scoped write boundary:",
+    `- All file writes MUST stay under ${prefix.replace(/\/+$/, "")}/ within the workspace root.`,
+    `- Reject and report any path outside ${prefix.replace(/\/+$/, "")}/.`,
+    "",
+  ];
+}
+
+function buildProfilePromptSections(workerProfile) {
+  if (!isMultiWorkspaceProfile(workerProfile) && !isScopedWriteProfile(workerProfile)) {
+    return [];
+  }
+
+  return [
+    ...buildScopedWritePromptSection(workerProfile),
+    ...buildProfileGuardrailPromptSection(workerProfile),
+    "",
+    ...buildResultReportPromptSection(workerProfile),
+    "",
+  ];
+}
+
 function isSupervisedImplementJob(claimedJob) {
   return claimedJob?.task_type === "supervised_implement";
+}
+
+function isScopedWriteBridgeJob(claimedJob) {
+  const profile = claimedJob?.target_worker_profile || WORKER_PROFILE;
+  return isScopedWriteProfile(profile);
 }
 
 function isMultiWorkspaceBridgeJob(claimedJob) {
@@ -557,9 +597,17 @@ function validateApprovedFinalizeJob(claimedJob) {
     );
   }
 
+  const targetWorkerProfile =
+    claimedJob.target_worker_profile || WORKER_PROFILE;
+
   const allowlistPaths = readStringArrayField(claimedJob, "allowlist_paths");
   if (allowlistPaths.length === 0) {
     errors.push("allowlist_paths must contain at least one path");
+  } else {
+    const scopeError = validateWriteScopePaths(targetWorkerProfile, allowlistPaths);
+    if (scopeError) {
+      errors.push(scopeError);
+    }
   }
 
   const message = readJobContractField(claimedJob, "message");
@@ -567,8 +615,6 @@ function validateApprovedFinalizeJob(claimedJob) {
     errors.push("message is required for approved_finalize");
   }
 
-  const targetWorkerProfile =
-    claimedJob.target_worker_profile || WORKER_PROFILE;
   if (targetWorkerProfile !== WORKER_PROFILE) {
     errors.push(
       `target_worker_profile must match running worker "${WORKER_PROFILE}", got ${JSON.stringify(targetWorkerProfile)}`
@@ -795,14 +841,7 @@ function buildCursorAgentPrompt(claimedJob) {
   const prompt = claimedJob.prompt || claimedJob.payload?.prompt || "";
   const supervised = isSupervisedImplementJob(claimedJob);
   const workerProfile = claimedJob.target_worker_profile || WORKER_PROFILE;
-  const profileSections = isMultiWorkspaceProfile(workerProfile)
-    ? [
-        ...buildProfileGuardrailPromptSection(workerProfile),
-        "",
-        ...buildResultReportPromptSection(workerProfile),
-        "",
-      ]
-    : [];
+  const profileSections = buildProfilePromptSections(workerProfile);
 
   if (supervised) {
     return [
@@ -897,25 +936,40 @@ function runCursorAgentForJob(claimedJob) {
   const stderr = (result.stderr || "").trim();
 
   const gitSnapshot = supervised ? readGitSnapshot(executionWorkspace) : null;
+  const workerProfile = claimedJob.target_worker_profile || WORKER_PROFILE;
+  const writeScopeError =
+    supervised && gitSnapshot?.diff_files?.length
+      ? validateWriteScopePaths(workerProfile, gitSnapshot.diff_files)
+      : null;
+
   const cursorTimedOut = result.error?.code === "ETIMEDOUT";
   const supervisedChangedFiles =
     supervised && gitSnapshot && gitSnapshot.diff_files.length > 0;
   const cursorExitOk = result.status === 0;
-  const resultStatus = cursorExitOk || supervisedChangedFiles ? "completed" : "failed";
+  const resultStatus = writeScopeError
+    ? "failed"
+    : cursorExitOk || supervisedChangedFiles
+      ? "completed"
+      : "failed";
 
   if (result.error && !(supervised && cursorTimedOut && supervisedChangedFiles)) {
     throw result.error;
   }
 
-  const resultReport = isMultiWorkspaceBridgeJob(claimedJob)
-    ? {
-        required: true,
-        sections: getResultReportContract(
-          claimedJob.target_worker_profile || WORKER_PROFILE
-        ),
-        workspace_touched: executionWorkspace,
-      }
-    : null;
+  const resultReport =
+    isMultiWorkspaceBridgeJob(claimedJob) || isScopedWriteBridgeJob(claimedJob)
+      ? {
+          required: true,
+          sections: getResultReportContract(workerProfile),
+          workspace_touched: executionWorkspace,
+        }
+      : null;
+
+  const resultErrors = writeScopeError
+    ? [writeScopeError]
+    : result.status === 0
+      ? []
+      : [stderr || `Cursor Agent exited with status ${result.status}`];
 
   return {
     status: resultStatus,
@@ -926,8 +980,14 @@ function runCursorAgentForJob(claimedJob) {
     files_seen: gitSnapshot
       ? gitSnapshot.diff_files.map((filePath) => ({ path: filePath, type: "file" }))
       : [],
-    summary: stdout || stderr || (cursorTimedOut ? "Cursor Agent timed out after supervised execution; runner submitted git snapshot." : "Cursor Agent returned no output."),
-    errors: result.status === 0 ? [] : [stderr || `Cursor Agent exited with status ${result.status}`],
+    summary: writeScopeError
+      ? "supervised_implement write scope validation failed"
+      : stdout ||
+        stderr ||
+        (cursorTimedOut
+          ? "Cursor Agent timed out after supervised execution; runner submitted git snapshot."
+          : "Cursor Agent returned no output."),
+    errors: resultErrors,
     safety: {
       cursor_called: true,
       snapshot_only: false,

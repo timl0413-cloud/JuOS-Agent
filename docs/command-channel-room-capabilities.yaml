@@ -56,6 +56,21 @@ confirmed_worker_profiles:
     status: added
     notes: Local NovaUniverse workspace; Tim approved for command-channel routing.
 
+  gsync:
+    repo_ref: juos-knowledge-vault
+    workspace_ref: "C:\\projects\\juos-knowledge-vault"
+    allowed_write_scope: "gsync/**"
+    worker_hub: scripts/start-worker-hubs.ps1 (GSync Worker Hub)
+    task_types:
+      - inspect_only
+      - supervised_implement
+      - approved_finalize
+    status: added
+    notes: >
+      GSync direct development in juos-knowledge-vault. Writes restricted to
+      gsync/**. JOA owns routing only; GSync owns domain work. See
+      docs/command-channel/gsync-direct-execution-path-v0.md.
+
   spacea:
     repo_ref: per job (STUF, Kenkoup, Primoo, _ClientOps)
     workspace_ref: per job (see config/workspace-targets.json)
@@ -104,13 +119,13 @@ rooms:
   gsync:
     display_name: Gsync
     action_capable: if_configured
-    repo_support: jucore_local_scaffold
-    primary_target_worker_profile: jucore
-    primary_repo_ref: JuCore
+    repo_support: gsync_direct_and_jucore_scaffold
+    primary_target_worker_profile: gsync
+    primary_repo_ref: juos-knowledge-vault
     notes: >
-      Action may be wired later. Local scaffold routes to JuCore via
-      target_worker_profile jucore when the JuCore worker hub is running.
-      May also target other confirmed profiles on valid task payloads.
+      Direct GSync development via target_worker_profile gsync and workspace
+      juos-knowledge-vault (writes under gsync/** only). JuCore scaffold still
+      available via jucore when that hub is running.
 
   fa:
     display_name: FA
@@ -134,7 +149,14 @@ rooms:
       do not create without Tim approval.
 
 future_repos:
-  gsync:
+  juos-knowledge-vault:
+    status: added
+    repo_ref: juos-knowledge-vault
+    workspace_ref: "C:\\projects\\juos-knowledge-vault"
+    target_worker_profile: gsync
+    notes: GSync direct development lane; writes under gsync/** only.
+
+  gsync_jucore_scaffold:
     status: local_scaffold
     repo_ref: JuCore
     workspace_ref: "C:\\projects\\JuCore"

@@ -49,6 +49,12 @@ $Hubs = @(
     WorkerScript = "C:\projects\TimOS-Agent\scripts\command-channel-worker.js"
   },
   @{
+    Name = "GSync Worker Hub"
+    Profile = "gsync"
+    Workspace = "C:\projects\juos-knowledge-vault"
+    WorkerScript = "C:\projects\TimOS-Agent\scripts\command-channel-worker.js"
+  },
+  @{
     Name = "SpaceA Worker Hub"
     Profile = "spacea"
     Workspace = "C:\projects\TimOS-Agent"

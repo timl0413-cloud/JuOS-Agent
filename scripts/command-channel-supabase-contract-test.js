@@ -454,6 +454,72 @@ async function runMockAdapterChecks() {
     )
   );
 
+  const gsyncInspectValid = validateCreateJobInput({
+    target_worker_profile: "gsync",
+    repo_ref: "juos-knowledge-vault",
+    workspace_ref: "C:\\projects\\juos-knowledge-vault",
+    task_type: "inspect_only",
+    risk_level: "low",
+  });
+  results.push(
+    assertCase(
+      "gsync inspect_only job validates",
+      gsyncInspectValid.ok === true,
+      gsyncInspectValid.errors.join("; ")
+    )
+  );
+
+  const gsyncImplementValid = validateCreateJobInput({
+    target_worker_profile: "gsync",
+    repo_ref: "juos-knowledge-vault",
+    workspace_ref: "C:\\projects\\juos-knowledge-vault",
+    task_type: "supervised_implement",
+    risk_level: "low",
+  });
+  results.push(
+    assertCase(
+      "gsync supervised_implement job validates",
+      gsyncImplementValid.ok === true,
+      gsyncImplementValid.errors.join("; ")
+    )
+  );
+
+  const gsyncWrongWorkspace = validateCreateJobInput({
+    target_worker_profile: "gsync",
+    repo_ref: "juos-knowledge-vault",
+    workspace_ref: "C:\\projects\\TimOS-Agent",
+    task_type: "inspect_only",
+    risk_level: "low",
+  });
+  results.push(
+    assertCase(
+      "gsync profile rejects wrong workspace",
+      gsyncWrongWorkspace.ok === false,
+      gsyncWrongWorkspace.errors.join("; ")
+    )
+  );
+
+  results.push(
+    assertCase(
+      "allowed worker profiles include gsync",
+      ALLOWED_WORKER_PROFILES.includes("gsync"),
+      ALLOWED_WORKER_PROFILES.join(", ")
+    )
+  );
+
+  const gsyncFinalizeValid = validateApprovedFinalizeContract({
+    workerProfile: "gsync",
+    repoRef: "juos-knowledge-vault",
+    workspaceRef: "C:\\projects\\juos-knowledge-vault",
+  });
+  results.push(
+    assertCase(
+      "approved_finalize gsync contract validates",
+      gsyncFinalizeValid.ok === true,
+      gsyncFinalizeValid.errors.join("; ")
+    )
+  );
+
   const stufValid = validateCreateJobInput({
     target_worker_profile: "spacea",
     repo_ref: "STUF",

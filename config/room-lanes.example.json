@@ -65,26 +65,53 @@
     },
     {
       "room_id": "gsync",
-      "display_name": "GSync — cross-room packet registry",
+      "display_name": "GSync — cross-room packet registry and direct development",
+      "source_room": "GSync",
+      "active_lane": "gsync-dev",
+      "allowed_worker_profiles": ["gsync"],
+      "repo_ref": "juos-knowledge-vault",
+      "workspace_ref": "C:\\projects\\juos-knowledge-vault",
+      "allowed_paths": [
+        "gsync/**",
+        "C:\\projects\\juos-knowledge-vault\\gsync/**"
+      ],
+      "forbidden_paths": [
+        "Paths outside gsync/ in juos-knowledge-vault",
+        "Raw chat ingestion",
+        "Auto-routing without Tim approval",
+        "DB backend or worker auto-claim changes from registry docs",
+        "JuCore activation from gsync profile lane"
+      ],
+      "status_surface": "gsync/README.md in juos-knowledge-vault; gsync/registry/",
+      "handoff_packet_template": "gsync/templates/packet-template.md",
+      "lane_status": "ready_to_test",
+      "guardrails": [
+        "First job must be inspect_only smoke test",
+        "supervised_implement writes restricted to gsync/**",
+        "Must declare source_room GSync; never present as JOA",
+        "GSync owns domain work; JOA owns routing only"
+      ]
+    },
+    {
+      "room_id": "gsync-registry",
+      "display_name": "GSync — JuCore scaffold lane",
       "source_room": "GSync",
       "active_lane": "gsync-registry",
       "allowed_worker_profiles": ["jucore"],
       "repo_ref": "JuCore",
       "workspace_ref": "C:\\projects\\JuCore",
       "allowed_paths": [
-        "gsync/",
         "C:\\projects\\JuCore/**"
       ],
       "forbidden_paths": [
         "Raw chat ingestion",
-        "Auto-routing without Tim approval",
-        "DB backend or worker auto-claim changes from registry docs"
+        "Auto-routing without Tim approval"
       ],
       "status_surface": "gsync/README.md; gsync/registry/",
       "handoff_packet_template": "gsync/templates/packet-template.md",
       "lane_status": "active",
       "guardrails": [
-        "Accepted packets only; handoff by packet ID not transcript",
+        "JuCore scaffold only — separate from gsync direct dev lane",
         "Command-channel jobs use target_worker_profile jucore when JuCore hub is running",
         "Must declare source_room GSync; never present as JOA"
       ]

@@ -23,7 +23,26 @@ Every page shows a badge at the top:
 
 The meta line also shows `Mode: live` or `Mode: sample`.
 
-## Start local live tower (recommended)
+## One command to check or start (recommended)
+
+From repo root — diagnoses port 8790, auth in **this shell**, and whether `/tower` will be live or setup-only. Never prints token values.
+
+```powershell
+.\scripts\start-control-tower.ps1
+```
+
+| Flag | Behavior |
+|------|----------|
+| *(none)* | Check only — port, auth, expected LIVE vs SETUP |
+| `-Start` | Start `npm run server:command-channel` in this window (Ctrl+C to stop) |
+| `-OpenBrowser` | Open `http://127.0.0.1:8790/tower` after checks or when server is already up |
+| `-ForceStop` | Stop whatever owns port 8790 **only when you pass this flag** — never automatic |
+
+npm aliases: `npm run tower:check` (diagnose), `npm run tower:start` (diagnose + start).
+
+**Reminder:** do not paste tokens into chat or the browser. Use a token-loaded supervisor shell so auth is already in the session.
+
+## Start local live tower (manual)
 
 From a **token-loaded supervisor shell** (auth already in that session — do not paste tokens into the browser):
 
@@ -31,6 +50,8 @@ From a **token-loaded supervisor shell** (auth already in that session — do no
 npm run server:command-channel
 start http://127.0.0.1:8790/tower
 ```
+
+Or use the helper: `.\scripts\start-control-tower.ps1 -Start -OpenBrowser`
 
 Server must bind loopback (`COMMAND_CHANNEL_HOST=127.0.0.1`, default). Auth must be configured in the server process (`config/auth.json` or env). No Bearer header is needed in the browser on 127.0.0.1.
 
@@ -54,6 +75,24 @@ When **all** of these are true, `/tower`, `/watch`, and `/status` serve live HTM
 The server uses its in-process auth configuration as proof the supervisor shell is trusted. **Token values are never sent to the browser**, logged, or embedded in HTML/JSON.
 
 If auth is missing, the browser gets a setup landing page (not sample data) with links to preview and CLI commands.
+
+## Troubleshooting: EADDRINUSE (port 8790 already in use)
+
+Run the helper first:
+
+```powershell
+.\scripts\start-control-tower.ps1
+```
+
+It reports which process owns port 8790 and whether it is already the command-channel server.
+
+| Situation | Safe action |
+|-----------|-------------|
+| Old command-channel server on 8790 | Stop that window (Ctrl+C), or `.\scripts\start-control-tower.ps1 -ForceStop` then `-Start` |
+| Unknown process on 8790 | Do **not** use `-ForceStop` until you recognize the PID; pick another port via `COMMAND_CHANNEL_PORT` |
+| Server already running with live bridge | Open `http://127.0.0.1:8790/tower` — no restart needed |
+
+The helper never kills processes unless you pass `-ForceStop`.
 
 ## Troubleshooting: raw `{ "error": "auth_not_configured" }`
 
