@@ -2,6 +2,8 @@
 
 Move the JOA command-channel worker loop from **Station 1** (heavy graphics/3D workstation) to **Station 4 or 5** (lightweight always-on host). This v0 is **documentation + local preflight only** — no auth changes, no schema changes, no remote deploy.
 
+**Parallel context:** Station 4/5 bootstrap frees Station 1 for Cursor-heavy work and keeps **one JOA writer slot** always-on. It does **not** by itself enable 2–3 simultaneous jobs — that requires additional profile hubs on separate workspaces. See [`parallel-lane-readiness-v0.md`](./parallel-lane-readiness-v0.md).
+
 ## Purpose and scope
 
 | In scope | Out of scope |
@@ -216,6 +218,7 @@ node scripts/command-channel-status.js --http --recovery --profile joa
 | No heartbeat / auto-restart | Operator restarts loop after reboot | Task Scheduler or service wrapper (future) |
 | No push if loop dies | Time sweep shows stranded | Tim or assistant re-runs sweep periodically |
 | Single JOA window | One PowerShell session | Document host name; avoid duplicate loops on two machines |
+| Parallel lanes | JOA host only | NB/Finance/SpaceA hubs are **separate loops** on their workspaces — see parallel-lane-readiness-v0 |
 | Bridge Status not on phone | CLI / curl on desktop | [bridge-status-external-v0.md](./bridge-status-external-v0.md) (future) |
 | Reboot persistence | Manual start after login | Logon script or scheduled task (future, out of v0) |
 

@@ -111,22 +111,56 @@ Example JSON fragment (`GET /status/summary`):
 }
 ```
 
+## Parallel lane capacity (v0)
+
+Safe target: **2–3 simultaneous active jobs** via **separate lanes/workspaces** — not multiple writers on the same repo. Full operator guide: [`parallel-lane-readiness-v0.md`](./parallel-lane-readiness-v0.md).
+
+| Metric | v0 value |
+|--------|----------|
+| Active writer lanes now | **1** (JOA on Station 1) |
+| Safe parallel target | **2–3** |
+| Next slot candidate | **NovaBridge** (`nova` → `NovaUniverse`) |
+
+### Readiness categories
+
+The `/tower` **Parallel lane capacity** table uses these categories (static registry — does not imply a hub is running):
+
+| Category | Meaning |
+|----------|---------|
+| **Active now** | Approved lane with worker loop in use (or registry-active and hub expected running) |
+| **Ready to test** | Profile + workspace mapped; Tim approval + smoke test before first real job |
+| **Pending setup** | Host bootstrap, identity card, or lane opening checklist incomplete |
+| **Blocked** | External gate — use documented fallback path only |
+| **Not safe yet** | Would require unsafe same-workspace concurrency |
+
+JSON fields on `GET /tower/summary`:
+
+| Field | Description |
+|-------|-------------|
+| `parallel_capacity.active_lane_count` | Lanes in **Active now** (v0: 1) |
+| `parallel_capacity.safe_target_min` / `safe_target_max` | 2 / 3 |
+| `parallel_capacity.slots_available` | How many more parallel writers can open safely |
+| `lane_registry[].readiness_category` | Category per room (see table above) |
+| `lane_registry[].active_lane` | Lane id for job payload (`joa-dev`, `nova-dev`, …) |
+
 ## Cross-room launch readiness
 
-The Control Tower HTML page includes a **Cross-room launch readiness** table (static v0 registry aligned with [`room-lane-identity-v0.md`](./room-lane-identity-v0.md)):
+The Control Tower HTML page includes a **Parallel lane capacity** table (static v0 registry aligned with [`room-lane-identity-v0.md`](./room-lane-identity-v0.md) and [`parallel-lane-readiness-v0.md`](./parallel-lane-readiness-v0.md)):
 
-| Room | v0 status | Can other rooms start dev work? |
-|------|-----------|----------------------------------|
-| **JOA** | `active` | Yes — primary TimOS-Agent lane on Station 1 |
-| **Station 4 / 5** | `bootstrap_pending` | No — worker hub panels not always-on yet |
-| **NovaBridge (NB)** | `pending` | No — lane setup + Room Identity Card required |
-| **JUB** | `pending` | No — GSync publish/consume only until lane opened |
-| **GSync** | `active` | Yes — registry; `jucore` when JuCore hub runs |
-| **SpaceA / MinistryOps / Finance** | `active` | Yes — per-job `repo_ref` + `workspace_ref` required |
+| Room | Readiness | Can start dev work? |
+|------|-----------|---------------------|
+| **JOA** | Active now | Yes — primary TimOS-Agent lane (Station 1 loop) |
+| **NovaBridge (NB)** | Ready to test | Not yet — smoke test + Tim approval; then start `nova` hub |
+| **Finance / JFA** | Ready to test | Not yet — start `finance` hub + smoke test |
+| **SpaceA / MinistryOps** | Ready to test | Not yet — per-job workspace; hub must run |
+| **GSync / JuCore** | Ready to test | Registry active; `jucore` hub when running |
+| **Station 4 / 5** | Pending setup | No — JOA host bootstrap not complete |
+| **JUB** | Blocked | No — GSync publish/consume only until OB auth resolved |
+| **JEX** | Pending setup | No — handoff only; no worker profile |
 
 For a handoff packet when a room asks “can we start?”, use [`templates/command-channel/cross-room-readiness-packet.md`](../../templates/command-channel/cross-room-readiness-packet.md).
 
-**This v0 does not auto-launch other rooms.** Readiness is informational only.
+**This v0 does not auto-launch other rooms.** Readiness is informational only — **Active now** vs **Ready to test** must not be confused.
 
 ## Related surfaces
 
@@ -159,4 +193,5 @@ See also:
 - Automatic cross-room job launch
 - SMS, email, or hosted cron alerts
 - Station 4/5 always-on worker panels
+- Automatic parallel lane activation (see [`parallel-lane-readiness-v0.md`](./parallel-lane-readiness-v0.md))
 - Notification ledger (completed rows stay visible until room post)
