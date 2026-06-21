@@ -132,6 +132,8 @@ See [`bridge-status-ui-v0.md`](./bridge-status-ui-v0.md).
 
 Local live bridge never exposes token values in HTML, JSON, logs, or errors. No auth settings were changed in this v0.
 
+When auth is missing, browser visits to `/tower`, `/watch`, or `/status` show a setup page (not raw JSON). Explicit JSON requests (`Accept: application/json`, `/tower/summary`, curl API calls) still return JSON errors. See [`local-live-tower-v0.md`](./local-live-tower-v0.md) troubleshooting.
+
 ## Remaining blockers before phone / external access
 
 | Blocker | v0 mitigation |

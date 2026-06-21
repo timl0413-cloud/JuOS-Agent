@@ -100,6 +100,33 @@ function sendHtml(res, statusCode, body) {
   res.end(payload);
 }
 
+function requestRemoteAddress(req) {
+  return req.socket?.remoteAddress || req.connection?.remoteAddress;
+}
+
+function requestHostName(req) {
+  const host = req.headers.host || "";
+  return host.split(":")[0].toLowerCase();
+}
+
+function isLoopbackRequest(req) {
+  if (isLoopbackAddress(requestRemoteAddress(req))) {
+    return true;
+  }
+  return isLoopbackHost(requestHostName(req));
+}
+
+function prefersHtmlResponse(req) {
+  const accept = String(req.headers.accept || "").toLowerCase();
+  if (req.headers["x-requested-with"] === "XMLHttpRequest") {
+    return false;
+  }
+  if (accept.includes("application/json") && !accept.includes("text/html")) {
+    return false;
+  }
+  return true;
+}
+
 function readJsonBody(req) {
   return new Promise((resolve, reject) => {
     let data = "";
@@ -299,8 +326,8 @@ function requireAuth(req, res, route, method) {
   if (
     method === "GET" &&
     LOCAL_LIVE_HTML_ROUTES.has(route.name) &&
-    isLoopbackHost(HOST) &&
-    isLoopbackAddress(req.socket?.remoteAddress)
+    isLoopbackRequest(req) &&
+    prefersHtmlResponse(req)
   ) {
     const alias = LOCAL_LIVE_ROUTE_ALIASES[route.name] || "tower";
     const reason =
@@ -310,7 +337,12 @@ function requireAuth(req, res, route, method) {
     sendHtml(
       res,
       auth.status === 503 ? 503 : 401,
-      renderLocalLiveLandingHtml({ route: alias, reason })
+      renderLocalLiveLandingHtml({
+        route: alias,
+        reason,
+        host: HOST,
+        port: PORT,
+      })
     );
     return { ok: false, handled: true };
   }
@@ -493,17 +525,27 @@ try {
 
 server.listen(PORT, HOST, () => {
   const backendStatus = getBackendStatus();
+  const liveUrl = `http://127.0.0.1:${PORT}/tower`;
+  const previewUrl = `http://127.0.0.1:${PORT}/tower/preview`;
   console.log(
     `TimOS-Agent command channel listening on http://${HOST}:${PORT} (backend=${backendStatus.backend})`
   );
-  if (isLoopbackHost(HOST)) {
-    if (authConfigured()) {
-      console.log(
-        `Local live tower (browser, no Bearer): http://${HOST}:${PORT}/tower`
-      );
+  if (authConfigured()) {
+    console.log(`Local live bridge: available (auth loaded in this process)`);
+    if (isLoopbackHost(HOST)) {
+      console.log(`Local live tower (browser, no Bearer): ${liveUrl}`);
     }
+  } else {
     console.log(
-      `Sample preview (not live): http://${HOST}:${PORT}/tower/preview`
+      "Local live bridge: unavailable — auth not configured in this process"
     );
+    console.log(
+      "Restart from a token-loaded supervisor shell, then open:",
+      liveUrl
+    );
+    if (isLoopbackHost(HOST)) {
+      console.log(`Setup page (browser, not live): ${liveUrl}`);
+    }
   }
+  console.log(`Sample preview (not live): ${previewUrl}`);
 });

@@ -55,6 +55,40 @@ The server uses its in-process auth configuration as proof the supervisor shell 
 
 If auth is missing, the browser gets a setup landing page (not sample data) with links to preview and CLI commands.
 
+## Troubleshooting: raw `{ "error": "auth_not_configured" }`
+
+If you see raw JSON instead of the setup page:
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| `{ "error": "auth_not_configured" }` in browser | Server started without auth in this process | Restart from token-loaded supervisor shell (below) |
+| Same JSON from `curl` with `Accept: application/json` | Expected — explicit JSON/API request | Use browser, or add Bearer token for API access |
+| Setup page shows but live still fails after restart | Auth still not visible to Node in that shell | Confirm `config/auth.json` exists or env vars are set **before** `npm run server:command-channel` |
+
+### Correct restart (Station 1 / 4 / 5)
+
+From a **token-loaded supervisor shell** (auth already in that session — do not paste tokens into chat):
+
+```powershell
+npm run server:command-channel
+start http://127.0.0.1:8790/tower
+```
+
+On startup the server logs whether the local live bridge is available:
+
+- `Local live bridge: available (auth loaded in this process)` — open `http://127.0.0.1:8790/tower` for **LIVE DATA**
+- `Local live bridge: unavailable — auth not configured in this process` — browser shows setup page at the same URL until restart
+
+Token values are never printed in logs, HTML, or JSON errors.
+
+### What you should see
+
+| State | Browser at `/tower` | Badge |
+|-------|---------------------|-------|
+| Auth missing | Setup page: "This is not live yet" | Not live — setup required |
+| Auth loaded | Control Tower with real job data | **LIVE DATA · local browser (127.0.0.1)** |
+| Preview route | Fake sample jobs | **SAMPLE DATA ONLY** |
+
 ## Preview routes stay sample-only
 
 ```powershell
