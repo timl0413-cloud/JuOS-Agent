@@ -1,0 +1,337 @@
+openapi: 3.1.0
+info:
+  title: TimOS-Agent STUF Command Channel (Action-Safe)
+  description: |
+    No-paste command channel for STUF Project Room GPT Action.
+
+    STUF creates remote jobs against the dedicated stuf worker lane only.
+    Fixed routing: repo_ref=STUF, workspace_ref=C:\projects\SpaceA\STUF-Website,
+    target_worker_profile=stuf.
+
+    Does NOT include worker claim/result, approve, run, or operator endpoints.
+
+    Deployed coordinator uses Supabase durable storage (COMMAND_CHANNEL_BACKEND=supabase).
+    Local tests may use filesystem backend.
+
+    Use XIAOJU_ACTION_TOKEN bearer auth only (remote-jobs:create, remote-jobs:read, remote-jobs:list).
+  version: 0.1.0
+
+servers:
+  - url: https://YOUR-COORDINATOR-URL
+    description: Deployed command channel coordinator (replace before use)
+
+security:
+  - BearerAuth: []
+
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      summary: Service health check
+      security: []
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+
+  /remote-jobs:
+    post:
+      operationId: createRemoteJob
+      summary: Create a STUF remote job
+      description: |
+        Creates a job for target_worker_profile stuf only.
+        repo_ref must be STUF; workspace_ref must be C:\projects\SpaceA\STUF-Website.
+        risk_level must be low. Tim approval is required before the stuf worker hub claims the job.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRemoteJobRequest"
+            examples:
+              stufInspect:
+                summary: STUF inspect_only smoke test
+                value:
+                  requested_by: stuf
+                  target_worker_profile: stuf
+                  repo_ref: STUF
+                  workspace_ref: "C:\\projects\\SpaceA\\STUF-Website"
+                  task_type: inspect_only
+                  risk_level: low
+                  auto_run_requested: true
+                  approval_required: true
+                  prompt: Read-only inspect of STUF-Website workspace connectivity. Do not modify files.
+              stufImplement:
+                summary: STUF supervised implement
+                value:
+                  requested_by: stuf
+                  target_worker_profile: stuf
+                  repo_ref: STUF
+                  workspace_ref: "C:\\projects\\SpaceA\\STUF-Website"
+                  task_type: supervised_implement
+                  risk_level: low
+                  auto_run_requested: true
+                  approval_required: true
+                  prompt: Apply the requested STUF-Website change. Do not commit, push, or deploy.
+      responses:
+        "201":
+          description: Job created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RemoteJob"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/InsufficientScope"
+        "503":
+          $ref: "#/components/responses/AuthNotConfigured"
+    get:
+      operationId: listRemoteJobs
+      summary: List STUF remote jobs
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, claimed, completed, failed]
+        - name: requested_by
+          in: query
+          schema:
+            type: string
+            example: stuf
+        - name: target_worker_profile
+          in: query
+          schema:
+            type: string
+            enum: [stuf]
+          example: stuf
+      responses:
+        "200":
+          description: Job list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [jobs]
+                properties:
+                  jobs:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/RemoteJob"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/InsufficientScope"
+        "503":
+          $ref: "#/components/responses/AuthNotConfigured"
+
+  /remote-jobs/{job_id}:
+    get:
+      operationId: getRemoteJob
+      summary: Get one STUF remote job by id
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Job found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RemoteJob"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/InsufficientScope"
+        "404":
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          $ref: "#/components/responses/AuthNotConfigured"
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: XIAOJU_ACTION_TOKEN (remote-jobs:create, remote-jobs:read, remote-jobs:list)
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid bearer token
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    InsufficientScope:
+      description: Token lacks required scope
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/InsufficientScopeError"
+    AuthNotConfigured:
+      description: Auth tokens not configured
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+  schemas:
+    HealthResponse:
+      type: object
+      required: [ok, service, version]
+      properties:
+        ok:
+          type: boolean
+        service:
+          type: string
+        version:
+          type: string
+
+    CreateRemoteJobRequest:
+      type: object
+      required:
+        - repo_ref
+        - workspace_ref
+        - task_type
+        - risk_level
+        - target_worker_profile
+      properties:
+        repo_ref:
+          type: string
+          enum: [STUF]
+          description: Must be STUF for the stuf worker lane.
+          example: STUF
+        workspace_ref:
+          type: string
+          description: Must be C:\projects\SpaceA\STUF-Website.
+          example: "C:\\projects\\SpaceA\\STUF-Website"
+        task_type:
+          type: string
+          enum: [inspect_only, supervised_implement]
+          description: approved_finalize is worker-side only; use supervised_implement from the room.
+        risk_level:
+          type: string
+          enum: [low]
+        requested_by:
+          type: string
+          description: Audit id for the requesting room (use stuf).
+          example: stuf
+        prompt:
+          type: string
+          example: Apply the requested STUF-Website change. Do not commit, push, or deploy.
+        target_worker_profile:
+          type: string
+          enum: [stuf]
+          description: Dedicated STUF worker lane only.
+          example: stuf
+        auto_run_requested:
+          type: boolean
+          default: true
+        approval_required:
+          type: boolean
+          default: true
+
+    RemoteJob:
+      type: object
+      required:
+        - id
+        - requested_by
+        - target_worker_profile
+        - repo_ref
+        - task_type
+        - risk_level
+        - auto_run_requested
+        - status
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        requested_by:
+          type: string
+        target_worker_profile:
+          type: string
+          enum: [stuf]
+          example: stuf
+        repo_ref:
+          type: string
+          enum: [STUF]
+        workspace_ref:
+          type: string
+          example: "C:\\projects\\SpaceA\\STUF-Website"
+        task_type:
+          type: string
+          enum: [inspect_only, supervised_implement, approved_finalize]
+        risk_level:
+          type: string
+          enum: [low]
+        auto_run_requested:
+          type: boolean
+        approval_required:
+          type: boolean
+        prompt:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [pending, claimed, completed, failed]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        claimed_at:
+          type: string
+          format: date-time
+          nullable: true
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+        result:
+          nullable: true
+        errors:
+          type: array
+          items:
+            type: string
+
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+        validation_errors:
+          type: array
+          items:
+            type: string
+
+    InsufficientScopeError:
+      type: object
+      required: [error, required_scope]
+      properties:
+        error:
+          type: string
+          enum: [insufficient_scope]
+        required_scope:
+          type: string

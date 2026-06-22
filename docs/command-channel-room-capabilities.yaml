@@ -71,6 +71,20 @@ confirmed_worker_profiles:
       gsync/**. JOA owns routing only; GSync owns domain work. See
       docs/command-channel/gsync-direct-execution-path-v0.md.
 
+  stuf:
+    repo_ref: STUF
+    workspace_ref: "C:\\projects\\SpaceA\\STUF-Website"
+    worker_hub: scripts/start-worker-hubs.ps1 (STUF Worker Hub)
+    task_types:
+      - inspect_only
+      - supervised_implement
+      - approved_finalize
+    status: confirmed
+    notes: >
+      Dedicated STUF-Website lane. Not SpaceA bridge. Jobs must use
+      target_worker_profile stuf with repo_ref STUF and workspace
+      C:\projects\SpaceA\STUF-Website.
+
   spacea:
     repo_ref: per job (STUF, Kenkoup, Primoo, _ClientOps)
     workspace_ref: per job (see config/workspace-targets.json)
@@ -126,6 +140,17 @@ rooms:
       Direct GSync development via target_worker_profile gsync and workspace
       juos-knowledge-vault (writes under gsync/** only). JuCore scaffold still
       available via jucore when that hub is running.
+
+  stuf:
+    display_name: STUF
+    action_capable: if_configured
+    repo_support: STUF-Website only
+    primary_target_worker_profile: stuf
+    primary_repo_ref: STUF
+    notes: >
+      STUF Project Room creates jobs via target_worker_profile stuf.
+      Import docs/openapi/stuf-command-channel.openapi.yaml into STUF GPT Action.
+      Not SpaceA bridge; do not route STUF work through target_worker_profile spacea.
 
   fa:
     display_name: FA

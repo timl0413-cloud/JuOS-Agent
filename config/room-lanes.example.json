@@ -245,6 +245,33 @@
         "Jobs use target_worker_profile finance",
         "Room identity is JFA; execution profile is finance"
       ]
+    },
+    {
+      "room_id": "stuf",
+      "display_name": "STUF — STUF-Website project room",
+      "source_room": "STUF",
+      "active_lane": "stuf-dev",
+      "allowed_worker_profiles": ["stuf"],
+      "repo_ref": "STUF",
+      "workspace_ref": "C:\\projects\\SpaceA\\STUF-Website",
+      "allowed_paths": [
+        "C:\\projects\\SpaceA\\STUF-Website/**"
+      ],
+      "forbidden_paths": [
+        "SpaceA bridge multi-target routing (Kenkoup, Primoo, _ClientOps)",
+        "Impersonating JOA or SpaceA for STUF work",
+        "TimOS-Agent runtime unless cross-repo task explicitly scoped",
+        "commit/push/deploy unless Tim explicitly approves in job payload"
+      ],
+      "status_surface": "Bridge status profile=stuf; docs/openapi/stuf-command-channel.openapi.yaml",
+      "handoff_packet_template": "templates/command-channel/status-packet.md",
+      "lane_status": "ready_to_test",
+      "guardrails": [
+        "STUF worker hub must be running for claim",
+        "Jobs use target_worker_profile stuf with repo_ref STUF only",
+        "Room identity is STUF; not SpaceA bridge",
+        "First job should be inspect_only smoke test"
+      ]
     }
   ]
 }
