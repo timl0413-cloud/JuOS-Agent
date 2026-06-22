@@ -62,6 +62,12 @@ $Hubs = @(
     SkipWorkspaceExistenceCheck = $true
   },
   @{
+    Name = "STUF Worker Hub"
+    Profile = "stuf"
+    Workspace = "C:\projects\SpaceA\STUF-Website"
+    WorkerScript = "C:\projects\TimOS-Agent\scripts\command-channel-worker.js"
+  },
+  @{
     Name = "Ministry Worker Hub"
     Profile = "ministry"
     Workspace = "C:\projects\TimOS-Agent"
@@ -126,4 +132,5 @@ Write-Host "  Persistent polling hub active worker_profile=finance"
 Write-Host "  Persistent polling hub active worker_profile=jucore"
 Write-Host "  Persistent polling hub active worker_profile=nova"
 Write-Host "  Persistent polling hub active worker_profile=spacea"
+Write-Host "  Persistent polling hub active worker_profile=stuf"
 Write-Host "  Persistent polling hub active worker_profile=ministry"

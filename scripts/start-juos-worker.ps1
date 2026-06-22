@@ -25,6 +25,7 @@ if (-not $Workspace) {
     "jucore" { $Workspace = "C:\projects\JuCore" }
     "nova" { $Workspace = "C:\projects\NovaUniverse" }
     "spacea" { $Workspace = "C:\projects\TimOS-Agent" }
+    "stuf" { $Workspace = "C:\projects\SpaceA\STUF-Website" }
     "ministry" { $Workspace = "C:\projects\TimOS-Agent" }
     "timos-core" { $Workspace = "C:\projects\TimOS-Core" }
     default { $Workspace = "C:\projects\TimOS-Agent" }

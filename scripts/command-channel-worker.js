@@ -142,6 +142,8 @@ function formatWorkerContext(extra = {}) {
     parts.push(`repo_ref=NovaUniverse`);
   } else if (WORKER_PROFILE === "spacea") {
     parts.push(`repo_ref=multi-workspace`);
+  } else if (WORKER_PROFILE === "stuf") {
+    parts.push(`repo_ref=STUF`);
   } else if (WORKER_PROFILE === "ministry") {
     parts.push(`repo_ref=multi-workspace`);
   }

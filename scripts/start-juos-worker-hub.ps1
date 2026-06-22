@@ -25,6 +25,7 @@ function Get-WorkspaceForProfile {
     "jucore" { return "C:\projects\JuCore" }
     "nova" { return "C:\projects\NovaUniverse" }
     "spacea" { return "C:\projects\TimOS-Agent" }
+    "stuf" { return "C:\projects\SpaceA\STUF-Website" }
     "ministry" { return "C:\projects\TimOS-Agent" }
     "timos-core" { return "C:\projects\TimOS-Core" }
     default { return "C:\projects\TimOS-Agent" }
