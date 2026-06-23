@@ -220,14 +220,17 @@ function logJobFinished(claimed, workerResult) {
 }
 
 function getWorkerToken() {
-  if (process.env.WORKER_TOKEN) {
-    return { token: process.env.WORKER_TOKEN, source: "env:WORKER_TOKEN" };
-  }
-
   if (process.env.COMMAND_CHANNEL_WORKER_TOKEN) {
     return {
       token: process.env.COMMAND_CHANNEL_WORKER_TOKEN,
       source: "env:COMMAND_CHANNEL_WORKER_TOKEN",
+    };
+  }
+
+  if (process.env.WORKER_TOKEN) {
+    return {
+      token: process.env.WORKER_TOKEN,
+      source: "env:WORKER_TOKEN (legacy fallback)",
     };
   }
 
@@ -236,9 +239,12 @@ function getWorkerToken() {
   const tokens = loadAuthTokens();
 
   if (!tokens) {
-    throw workerError("worker token missing: set WORKER_TOKEN or config/auth.json", {
-      token_source: "none",
-    });
+    throw workerError(
+      "worker token missing: set COMMAND_CHANNEL_WORKER_TOKEN, WORKER_TOKEN, or config/auth.json",
+      {
+        token_source: "none",
+      }
+    );
   }
 
   const record = findTokenByName(WORKER_TOKEN_NAME, tokens);
@@ -468,6 +474,26 @@ function findCodexCommand() {
     throw new Error("Codex provider requested but codex.cmd/codex.exe was not found in PATH");
   }
   return command;
+}
+
+function isWindowsCommandShim(commandPath) {
+  if (process.platform !== "win32") {
+    return false;
+  }
+
+  const ext = path.extname(String(commandPath || "")).toLowerCase();
+  return ext === ".cmd" || ext === ".bat";
+}
+
+function spawnCodexCommand(commandPath, args, options) {
+  if (!isWindowsCommandShim(commandPath)) {
+    return spawnSync(commandPath, args, options);
+  }
+
+  return spawnSync(commandPath, args, {
+    ...options,
+    shell: true,
+  });
 }
 
 
@@ -991,27 +1017,24 @@ function runCodexAgentForJob(claimedJob) {
   const executionWorkspace = workspaceValidation.workspaceRef;
   const codexCommand = findCodexCommand();
   const prompt = buildCodexAgentPrompt(claimedJob);
+  const codexArgs = [
+    "exec",
+    "--cd",
+    executionWorkspace,
+    "--sandbox",
+    "workspace-write",
+    "--ask-for-approval",
+    "never",
+    prompt,
+  ];
   const supervised = isSupervisedImplementJob(claimedJob);
 
-  const result = spawnSync(
-    codexCommand,
-    [
-      "exec",
-      "--cd",
-      executionWorkspace,
-      "--sandbox",
-      "workspace-write",
-      "--ask-for-approval",
-      "never",
-      prompt,
-    ],
-    {
-      cwd: executionWorkspace,
-      encoding: "utf8",
-      timeout: supervised ? 10 * 60 * 1000 : 3 * 60 * 1000,
-      maxBuffer: 1024 * 1024 * 10,
-    }
-  );
+  const result = spawnCodexCommand(codexCommand, codexArgs, {
+    cwd: executionWorkspace,
+    encoding: "utf8",
+    timeout: supervised ? 10 * 60 * 1000 : 3 * 60 * 1000,
+    maxBuffer: 1024 * 1024 * 10,
+  });
 
   const stdout = (result.stdout || "").trim();
   const stderr = (result.stderr || "").trim();
@@ -1052,6 +1075,7 @@ function runCodexAgentForJob(claimedJob) {
     },
     codex_agent: {
       command: codexCommand,
+      windows_command_shim: isWindowsCommandShim(codexCommand),
       mode: supervised ? "supervised_implement" : "inspect",
       exit_status: result.status,
       stderr: stderr || null,
