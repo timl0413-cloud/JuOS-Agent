@@ -1,6 +1,8 @@
 param(
-  [string[]]$Profiles = @("joa", "nova-reading", "finance", "ob", "gsync"),
+  [string[]]$Profiles = @(),
   [int]$SleepSeconds = 5,
+  [ValidateSet("codex", "cursor")]
+  [string]$Provider = "codex",
   [switch]$NoCursorAgent
 )
 
@@ -8,6 +10,12 @@ $ErrorActionPreference = "Continue"
 
 $AgentRoot = "C:\projects\TimOS-Agent"
 $WorkerScript = Join-Path $AgentRoot "scripts\command-channel-worker.js"
+$RegistryPath = Join-Path $AgentRoot "config\juos-room-registry.json"
+$Registry = Get-Content -Raw -Path $RegistryPath | ConvertFrom-Json
+
+if ($Profiles.Count -eq 0) {
+  $Profiles = @($Registry.profiles.PSObject.Properties.Name | Sort-Object)
+}
 
 if (-not $env:COMMAND_CHANNEL_URL) {
   $env:COMMAND_CHANNEL_URL = "https://juos.vercel.app/api/command-channel"
@@ -16,24 +24,15 @@ if (-not $env:COMMAND_CHANNEL_URL) {
 function Get-WorkspaceForProfile {
   param([string]$Profile)
 
-  switch ($Profile) {
-    "joa" { return "C:\projects\TimOS-Agent" }
-    "nova-reading" { return "C:\projects\TimOS-Agent" }
-    "finance" { return "C:\projects\TimFinance" }
-    "ob" { return "C:\projects\TimFinance" }
-    "gsync" { return "C:\projects\juos-knowledge-vault" }
-    "jucore" { return "C:\projects\JuCore" }
-    "nova" { return "C:\projects\NovaUniverse" }
-    "spacea" { return "C:\projects\TimOS-Agent" }
-    "stuf" { return "C:\projects\SpaceA\STUF-Website" }
-    "ministry" { return "C:\projects\TimOS-Agent" }
-    "timos-core" { return "C:\projects\TimOS-Core" }
-    default { return "C:\projects\TimOS-Agent" }
+  if ($Registry.profiles.PSObject.Properties.Name -contains $Profile) {
+    return $Registry.profiles.$Profile.workspace_ref
   }
+  return "C:\projects\TimOS-Agent"
 }
 
 Write-Host "JUOS_WORKER_HUB_START"
 Write-Host "Profiles: $($Profiles -join ', ')"
+Write-Host "Provider: $Provider"
 Write-Host "Command channel: $env:COMMAND_CHANNEL_URL"
 Write-Host "Press Ctrl+C to stop."
 
@@ -53,10 +52,12 @@ while ($true) {
       "--quiet",
       "--worker-profile",
       $profile,
+      "--provider",
+      $Provider,
       "--allow-lane"
     )
 
-    if (-not $NoCursorAgent) {
+    if ($Provider -eq "cursor" -and -not $NoCursorAgent) {
       $argsList += "--cursor-agent"
     }
 
@@ -73,4 +74,3 @@ while ($true) {
 
   Start-Sleep -Seconds $SleepSeconds
 }
-

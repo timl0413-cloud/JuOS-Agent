@@ -2,6 +2,8 @@ param(
   [string]$Profile = "finance",
   [string]$JobId = "",
   [string]$Workspace = "",
+  [ValidateSet("codex", "cursor")]
+  [string]$Provider = "codex",
   [switch]$NoCursorAgent,
   [switch]$Loop
 )
@@ -23,7 +25,7 @@ if (-not $Workspace) {
     "ob" { $Workspace = "C:\projects\TimFinance" }
     "gsync" { $Workspace = "C:\projects\juos-knowledge-vault" }
     "jucore" { $Workspace = "C:\projects\JuCore" }
-    "nova" { $Workspace = "C:\projects\NovaUniverse" }
+    "nova" { $Workspace = "C:\projects\Nova" }
     "spacea" { $Workspace = "C:\projects\TimOS-Agent" }
     "stuf" { $Workspace = "C:\projects\SpaceA\STUF-Website" }
     "ministry" { $Workspace = "C:\projects\TimOS-Agent" }
@@ -36,7 +38,9 @@ $argsList = @(
   $WorkerScript,
   "--http",
   "--worker-profile",
-  $Profile
+  $Profile,
+  "--provider",
+  $Provider
 )
 
 if (-not $Loop) {
@@ -48,11 +52,11 @@ if ($JobId) {
   $argsList += $JobId
 }
 
-if (-not $NoCursorAgent) {
+if ($Provider -eq "cursor" -and -not $NoCursorAgent) {
   $argsList += "--cursor-agent"
 }
 
-Write-Host "JUOS_WORKER_START profile=$Profile workspace=$Workspace"
+Write-Host "JUOS_WORKER_START profile=$Profile provider=$Provider workspace=$Workspace"
 
 Push-Location $Workspace
 try {

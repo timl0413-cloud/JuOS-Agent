@@ -109,6 +109,7 @@ function parseJobIdArg() {
 }
 
 const JOB_ID = parseJobIdArg();
+const EXECUTION_PROVIDER = resolveExecutionProvider();
 const WORKER_PROFILE =
   parseWorkerProfileArg() ||
   process.env.COMMAND_CHANNEL_WORKER_PROFILE ||
@@ -130,16 +131,19 @@ function formatWorkerContext(extra = {}) {
   const parts = [
     `worker_profile=${WORKER_PROFILE}`,
     `workspace=${getActiveWorkspaceRef()}`,
+    `provider=${EXECUTION_PROVIDER}`,
   ];
 
   if (WORKER_PROFILE === "joa") {
     parts.push(`repo_ref=${JOA_REPO_REF}`);
+  } else if (WORKER_PROFILE === "ob") {
+    parts.push(`repo_ref=TimFinance`);
   } else if (WORKER_PROFILE === "finance") {
     parts.push(`repo_ref=TimFinance`);
   } else if (WORKER_PROFILE === "jucore") {
     parts.push(`repo_ref=JuCore`);
   } else if (WORKER_PROFILE === "nova") {
-    parts.push(`repo_ref=NovaUniverse`);
+    parts.push(`repo_ref=Nova`);
   } else if (WORKER_PROFILE === "spacea") {
     parts.push(`repo_ref=multi-workspace`);
   } else if (WORKER_PROFILE === "stuf") {
@@ -160,6 +164,19 @@ function formatWorkerContext(extra = {}) {
   }
 
   return parts.join(" ");
+}
+
+function resolveExecutionProvider() {
+  const raw =
+    parseNamedArg("--provider") ||
+    process.env.JUOS_WORKER_PROVIDER ||
+    process.env.COMMAND_CHANNEL_WORKER_PROVIDER ||
+    (cursorAgent ? "cursor" : "codex");
+  const value = String(raw || "").toLowerCase();
+  if (value === "cursor" || value === "codex") {
+    return value;
+  }
+  throw new Error(`Unsupported provider "${raw}". Use codex or cursor.`);
 }
 
 function workerError(message, extra = {}) {
@@ -421,6 +438,36 @@ function findCursorAgentRuntime() {
   }
 
   return { runtimeDir, nodePath, indexPath };
+}
+
+function fileExists(filePath) {
+  try {
+    return fs.existsSync(filePath) && fs.statSync(filePath).isFile();
+  } catch {
+    return false;
+  }
+}
+
+function findCommandOnPath(commandNames) {
+  const pathValue = process.env.PATH || "";
+  const dirs = pathValue.split(path.delimiter).filter(Boolean);
+  for (const commandName of commandNames) {
+    for (const dir of dirs) {
+      const candidate = path.join(dir, commandName);
+      if (fileExists(candidate)) {
+        return candidate;
+      }
+    }
+  }
+  return null;
+}
+
+function findCodexCommand() {
+  const command = findCommandOnPath(["codex.cmd", "codex.exe"]);
+  if (!command) {
+    throw new Error("Codex provider requested but codex.cmd/codex.exe was not found in PATH");
+  }
+  return command;
 }
 
 
@@ -870,7 +917,7 @@ function buildCursorAgentPrompt(claimedJob) {
   }
 
   return [
-    "You are Cursor Agent working under XiaoJu/NovaUniverse command-channel.",
+    "You are Cursor Agent working under JuOS command-channel.",
     "",
     "Safety mode:",
     "- Do not modify files.",
@@ -885,6 +932,133 @@ function buildCursorAgentPrompt(claimedJob) {
     "Task:",
     prompt || "No task prompt provided.",
   ].join("\n");
+}
+
+function buildCodexAgentPrompt(claimedJob) {
+  const prompt = claimedJob.prompt || claimedJob.payload?.prompt || "";
+  const supervised = isSupervisedImplementJob(claimedJob);
+  const workerProfile = claimedJob.target_worker_profile || WORKER_PROFILE;
+  const profileSections = buildProfilePromptSections(workerProfile);
+
+  return [
+    "You are Codex working under JuOS command-channel.",
+    "",
+    supervised
+      ? "Supervised implementation mode:"
+      : "Inspection mode:",
+    supervised
+      ? "- Apply the requested local workspace code/file changes."
+      : "- Analyze only unless the job explicitly authorizes edits.",
+    "- Keep changes minimal and scoped to the requested workspace.",
+    "- Do not commit.",
+    "- Do not push.",
+    "- Do not deploy.",
+    "- Do not edit environment or protected-value files.",
+    "- Do not reveal credential values.",
+    "- Return a concise result with files changed, validation, and blockers.",
+    "",
+    ...profileSections,
+    "Job:",
+    JSON.stringify(claimedJob, null, 2),
+    "",
+    "Task:",
+    prompt || "No task prompt provided.",
+  ].join("\n");
+}
+
+function runCodexAgentForJob(claimedJob) {
+  const workspaceValidation = validateJobWorkspaceContract(claimedJob);
+  if (!workspaceValidation.ok) {
+    return {
+      status: "failed",
+      worker_profile: WORKER_PROFILE,
+      repo_ref: claimedJob.repo_ref || null,
+      task_type: claimedJob.task_type || "codex_agent",
+      files_seen: [],
+      summary: "workspace routing validation failed",
+      errors: workspaceValidation.errors,
+      safety: {
+        codex_called: false,
+        cursor_called: false,
+        snapshot_only: false,
+        files_modified: false,
+        shell_commands_executed: false,
+        local_api_called: false,
+      },
+    };
+  }
+
+  const executionWorkspace = workspaceValidation.workspaceRef;
+  const codexCommand = findCodexCommand();
+  const prompt = buildCodexAgentPrompt(claimedJob);
+  const supervised = isSupervisedImplementJob(claimedJob);
+
+  const result = spawnSync(
+    codexCommand,
+    [
+      "exec",
+      "--cd",
+      executionWorkspace,
+      "--sandbox",
+      "workspace-write",
+      "--ask-for-approval",
+      "never",
+      prompt,
+    ],
+    {
+      cwd: executionWorkspace,
+      encoding: "utf8",
+      timeout: supervised ? 10 * 60 * 1000 : 3 * 60 * 1000,
+      maxBuffer: 1024 * 1024 * 10,
+    }
+  );
+
+  const stdout = (result.stdout || "").trim();
+  const stderr = (result.stderr || "").trim();
+  const gitSnapshot = supervised ? readGitSnapshot(executionWorkspace) : null;
+  const workerProfile = claimedJob.target_worker_profile || WORKER_PROFILE;
+  const writeScopeError =
+    supervised && gitSnapshot?.diff_files?.length
+      ? validateWriteScopePaths(workerProfile, gitSnapshot.diff_files)
+      : null;
+  const codexTimedOut = result.error?.code === "ETIMEDOUT";
+  const resultStatus =
+    writeScopeError || result.error || result.status !== 0 ? "failed" : "completed";
+
+  return {
+    status: resultStatus,
+    worker_profile: WORKER_PROFILE,
+    repo_ref: claimedJob.repo_ref || null,
+    task_type: claimedJob.task_type || "codex_agent",
+    workspace_ref: executionWorkspace,
+    files_seen: gitSnapshot
+      ? gitSnapshot.diff_files.map((filePath) => ({ path: filePath, type: "file" }))
+      : [],
+    summary: writeScopeError
+      ? "supervised_implement write scope validation failed"
+      : stdout || stderr || "Codex returned no output.",
+    errors: writeScopeError
+      ? [writeScopeError]
+      : result.status === 0 && !result.error
+        ? []
+        : [stderr || result.error?.message || `Codex exited with status ${result.status}`],
+    safety: {
+      codex_called: true,
+      cursor_called: false,
+      snapshot_only: false,
+      files_modified: false,
+      shell_commands_executed: false,
+      local_api_called: false,
+    },
+    codex_agent: {
+      command: codexCommand,
+      mode: supervised ? "supervised_implement" : "inspect",
+      exit_status: result.status,
+      stderr: stderr || null,
+      timed_out: codexTimedOut,
+    },
+    git_snapshot: gitSnapshot,
+  };
 }
 
 function runCursorAgentForJob(claimedJob) {
@@ -1118,7 +1292,18 @@ async function processOneJob(options = {}) {
       return { claimedJob: claimed, workerResult, finished };
     }
 
-    if (cursorAgent || options.cursorAgent) {
+    if (EXECUTION_PROVIDER === "codex" || options.provider === "codex") {
+      const workerResult = runCodexAgentForJob(claimed);
+      const finished = await submitHttpResult(
+        tokenRecord.token,
+        claimed.id,
+        workerResult
+      );
+      console.log(`Codex result submitted: ${claimed.id} status=${workerResult.status}`);
+      return { claimedJob: claimed, workerResult, finished };
+    }
+
+    if (cursorAgent || options.cursorAgent || EXECUTION_PROVIDER === "cursor" || options.provider === "cursor") {
       const workerResult = runCursorAgentForJob(claimed);
       const finished = await submitHttpResult(
         tokenRecord.token,
@@ -1244,6 +1429,7 @@ module.exports = {
   isApprovedFinalizeJob,
   validateApprovedFinalizeJob,
   runApprovedFinalizeForJob,
+  runCodexAgentForJob,
 };
 
 

@@ -1,0 +1,35 @@
+{
+  "version": "1.0.0",
+  "generated_schema": "docs/openapi/juos-actions.generated.openapi.yaml",
+  "default_provider": "codex",
+  "profiles": {
+    "joa": {
+      "repo_ref": "TimOS-Agent",
+      "workspace_ref": "C:\\projects\\TimOS-Agent"
+    },
+    "finance": {
+      "repo_ref": "TimFinance",
+      "workspace_ref": "C:\\projects\\TimFinance"
+    },
+    "ob": {
+      "repo_ref": "TimFinance",
+      "workspace_ref": "C:\\projects\\TimFinance"
+    },
+    "gsync": {
+      "repo_ref": "juos-knowledge-vault",
+      "workspace_ref": "C:\\projects\\juos-knowledge-vault"
+    },
+    "jucore": {
+      "repo_ref": "JuCore",
+      "workspace_ref": "C:\\projects\\JuCore"
+    },
+    "stuf": {
+      "repo_ref": "STUF",
+      "workspace_ref": "C:\\projects\\SpaceA\\STUF-Website"
+    },
+    "nova": {
+      "repo_ref": "Nova",
+      "workspace_ref": "C:\\projects\\Nova"
+    }
+  }
+}

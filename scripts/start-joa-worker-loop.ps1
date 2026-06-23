@@ -1,4 +1,6 @@
 param(
+  [ValidateSet("codex", "cursor")]
+  [string]$Provider = "codex",
   [switch]$NoCursorAgent
 )
 
@@ -21,6 +23,7 @@ $ErrorActionPreference = "Stop"
 $launcherArgs = @{
   Profile = "joa"
   Loop    = $true
+  Provider = $Provider
 }
 
 if ($NoCursorAgent) {

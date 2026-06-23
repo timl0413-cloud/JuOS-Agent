@@ -28,7 +28,7 @@
     "status:tower": "node scripts/command-channel-status.js --local --tower --profile joa",
     "tower:check": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/start-control-tower.ps1",
     "tower:start": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/start-control-tower.ps1 -Start",
-    "worker:joa:loop": "node scripts/command-channel-worker.js --http --worker-profile joa --cursor-agent",
+    "worker:joa:loop": "node scripts/command-channel-worker.js --http --worker-profile joa --provider codex",
     "worker:command-channel-once": "node scripts/command-channel-worker.js --once --allow-lane",
     "test:command-channel-supabase-contract": "node scripts/command-channel-supabase-contract-test.js",
     "validate:gsync-route": "node scripts/validate-gsync-route-readiness.js",
