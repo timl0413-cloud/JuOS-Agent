@@ -11,7 +11,7 @@ This v0 layer is **read-only and operator-facing**. It does not schedule cron jo
 | Approved jobs sit unclaimed | Time sweep flags **stranded** after threshold |
 | Claimed jobs hang silently | **Running too long** after claim threshold |
 | Completed jobs never reach rooms | **Completed needs assistant review** (watchlist) |
-| TimOS tasks slip past due dates | Documented TimOS compare logic (manual/query) |
+| JuOS tasks slip past due dates | Documented JuOS compare logic (manual/query) |
 | Station 1 goes offline | **Station 4/5 setup triggers** documented |
 
 ## Command-channel sweep (implemented)
@@ -79,9 +79,9 @@ Implementation: `lib/command-channel-time-sweep.js`, wired via `--time-sweep` on
 
 Thresholds are constants in `lib/command-channel-time-sweep.js` for v0. No env vars or schema changes.
 
-## TimOS task sweep logic (documented, not wired to DB)
+## JuOS task sweep logic (documented, not wired to DB)
 
-When TimOS task records are available (JuOS API, export, or local JSON), compare **now** against task fields:
+When JuOS task records are available (JuOS API, export, or local JSON), compare **now** against task fields:
 
 | Field | Use |
 |-------|-----|
@@ -151,7 +151,7 @@ See also: [`completion-notification-v0.md`](./completion-notification-v0.md).
 |-----|-----|--------|
 | No background scheduler | Manual/assistant-initiated sweep only | Task Scheduler, hub heartbeat, or hosted cron |
 | No push notifications | CLI/watchlist output | Notification ledger + room packets |
-| TimOS tasks not queried | Documented classify logic | JuOS task API integration |
+| JuOS tasks not queried | Documented classify logic | JuOS task API integration |
 | No "last notified" / reviewed tracking | Completed flagged every watch run | Dedupe with notification ledger |
 | No ChatGPT background wake-up | Assistant runs watch when checking status | External alert (SMS, push, dashboard) |
 | Thresholds fixed in code | Edit lib constants | Env/config profile |

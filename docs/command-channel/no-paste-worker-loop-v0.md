@@ -177,7 +177,7 @@ ChatGPT has no background timer. Whenever XiaoJu/JOA checks status, run the **ti
 node scripts/command-channel-status.js --http --time-sweep --profile joa
 ```
 
-See [`time-aware-status-sweep-v0.md`](./time-aware-status-sweep-v0.md) for categories, TimOS task compare rules, and **Station 4/5 setup triggers** (before sleep, Travel Mode, or leaving Station 1 > 2–3 hours).
+See [`time-aware-status-sweep-v0.md`](./time-aware-status-sweep-v0.md) for categories, JuOS task compare rules, and **Station 4/5 setup triggers** (before sleep, Travel Mode, or leaving Station 1 > 2–3 hours).
 
 ## Recommended next step
 

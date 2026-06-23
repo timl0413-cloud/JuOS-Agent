@@ -2,7 +2,7 @@
 
 Move the JOA command-channel worker loop from **Station 1** (heavy graphics/3D workstation) to **Station 4 or 5** (lightweight always-on host). This v0 is **documentation + local preflight only** — no auth changes, no schema changes, no remote deploy.
 
-**Parallel context:** Station 4/5 bootstrap frees Station 1 for Cursor-heavy work and keeps **one JOA writer slot** always-on. It does **not** by itself enable 2–3 simultaneous jobs — that requires additional profile hubs on separate workspaces. See [`parallel-lane-readiness-v0.md`](./parallel-lane-readiness-v0.md).
+**Parallel context:** Station 4/5 bootstrap frees Station 1 for interactive work and keeps **one JOA writer slot** always-on. It does **not** by itself enable 2–3 simultaneous jobs — that requires additional profile hubs on separate workspaces. See [`parallel-lane-readiness-v0.md`](./parallel-lane-readiness-v0.md).
 
 ## Purpose and scope
 
@@ -13,7 +13,7 @@ Move the JOA command-channel worker loop from **Station 1** (heavy graphics/3D w
 | Manual operator setup tomorrow on Station 4/5 | Auto-routing, notification ledger, hosted cron |
 | Preflight checks without printing secrets | Leaving Station 1 on overnight as permanent worker host |
 
-**Hardware role:** Station 4/5 = lightweight always-on worker host. **Not** Station 1. Station 1 stays available for Cursor-heavy work; it should sleep when Tim is away once Station 4/5 passes preflight.
+**Hardware role:** Station 4/5 = lightweight always-on worker host. **Not** Station 1. Station 1 stays available for interactive Codex/Cursor work; it should sleep when Tim is away once Station 4/5 passes preflight.
 
 ## Prerequisites checklist
 
@@ -27,7 +27,7 @@ Complete on **Station 4/5** before starting the worker loop.
 | 4 | **Token loading** | Same approved method as Station 1: **token-loaded supervisor shell** with `WORKER_TOKEN` **or** `config/auth.json` profile `cloud-readonly-worker`; for status reads also `XIAOJU_ACTION_TOKEN` **or** profile `xiaoju-command-channel` |
 | 5 | **Optional env files** | If Station 1 uses them, copy **without editing values**: `config/command-channel-worker.env`, `.env.command-channel-worker`, `.env.juos.prod.local` (gitignored — copy securely, never paste into chat) |
 | 6 | **Network** | Outbound HTTPS to `https://juos.vercel.app/api/command-channel` (default `COMMAND_CHANNEL_URL`) |
-| 7 | **Cursor CLI** | `agent` / Cursor CLI available if jobs use `--cursor-agent` (default for JOA loop) |
+| 7 | **Codex/Cursor provider** | `codex.cmd` or `codex.exe` available by default; Cursor remains fallback with `-Provider cursor` |
 | 8 | **Workspace path** | JOA default workspace: `C:\projects\TimOS-Agent` |
 
 Run automated preflight (safe — no token values printed):
@@ -86,7 +86,7 @@ node scripts/command-channel-status.js --http --time-sweep --profile joa --json
 ### 4. Start JOA worker loop
 
 ```powershell
-.\scripts\start-joa-worker-loop.ps1
+.\scripts\start-joa-worker-loop.ps1 -Provider codex
 ```
 
 Expected banner:
@@ -99,7 +99,7 @@ Press Ctrl+C to stop.
 Equivalent:
 
 ```powershell
-.\scripts\start-juos-worker.ps1 -Profile joa -Loop
+.\scripts\start-juos-worker.ps1 -Profile joa -Provider codex -Loop
 # or
 npm run worker:joa:loop
 ```
@@ -190,7 +190,7 @@ node scripts/command-channel-status.js --http --time-sweep --profile joa
 | `running_too_long > 0` | Investigate before handoff; do not migrate host mid-job without Tim |
 | `completed_needs_notification` | Room post still required (unchanged v0 rule) |
 
-Full categories and TimOS task rules: [`time-aware-status-sweep-v0.md`](./time-aware-status-sweep-v0.md).
+Full categories and JuOS task rules: [`time-aware-status-sweep-v0.md`](./time-aware-status-sweep-v0.md).
 
 ## Escalation / fallback
 
@@ -201,13 +201,13 @@ Full categories and TimOS task rules: [`time-aware-status-sweep-v0.md`](./time-a
 | Token missing on Station 4/5 | Copy approved env/auth using same supervisor method; never paste tokens into chat |
 | HTTP status probe fails | Check network/VPN; verify `COMMAND_CHANNEL_URL`; compare with Station 1 |
 | Smoke test job never claims | Confirm `WORKER_TOKEN` in **same shell** as loop; check profile `joa`; see recovery in [no-stranded-job-v0.md](./no-stranded-job-v0.md) |
-| Cursor CLI missing on Station 4/5 | Install Cursor CLI or use `-NoCursorAgent` only if Tim explicitly accepts non-agent execution |
+| Codex missing on Station 4/5 | Install Codex CLI or explicitly use `-Provider cursor` after confirming Cursor fallback |
 
 Per-job recovery when loop is down:
 
 ```powershell
 node scripts/command-channel-status.js --http --recovery --profile joa
-.\scripts\start-juos-worker.ps1 -Profile joa -JobId <uuid>
+.\scripts\start-juos-worker.ps1 -Profile joa -Provider codex -JobId <uuid>
 ```
 
 ## What remains before Station 4/5 is trusted always-on

@@ -53,7 +53,7 @@ These profiles have confirmed repo/workspace contracts in TimOS-Agent today:
 | `finance` | `TimFinance` | `C:\projects\TimFinance` | Finance worker hub |
 | `jucore` | `JuCore` | `C:\projects\JuCore` | JuCore worker hub (Gsync local scaffold); supervised implement / approved finalize |
 | `gsync` | `juos-knowledge-vault` | `C:\projects\juos-knowledge-vault` | GSync direct dev; writes restricted to `gsync/**` — see [`gsync-direct-execution-path-v0.md`](./command-channel/gsync-direct-execution-path-v0.md) |
-| `nova` | `NovaUniverse` | `C:\projects\NovaUniverse` | Nova worker hub; inspect / supervised implement / approved finalize |
+| `nova` | `Nova` | `C:\projects\Nova` | Nova worker hub; inspect / supervised implement / approved finalize |
 | `spacea` | per job (`STUF`, `Kenkoup`, `Primoo`, `_ClientOps`) | per job (see below) | SpaceA bridge; multi-target local Cursor routing |
 | `ministry` | per job (`IMPACT`, `BETHANY`, `GFPF`, `GospelFilm`, `_MinistryOps`) | per job (see below) | MinistryOps bridge; multi-target local Cursor routing |
 
@@ -203,13 +203,13 @@ When additional repos exist beyond the local JuCore scaffold, add worker profile
 }
 ```
 
-### Supervised implement (NovaUniverse via nova profile)
+### Supervised implement (Nova via nova profile)
 
 ```json
 {
   "requested_by": "xiaoju",
-  "repo_ref": "NovaUniverse",
-  "workspace_ref": "C:\\projects\\NovaUniverse",
+  "repo_ref": "Nova",
+  "workspace_ref": "C:\\projects\\Nova",
   "target_worker_profile": "nova",
   "task_type": "supervised_implement",
   "risk_level": "low",

@@ -98,8 +98,8 @@ requested_by: <room id — not joa unless JOA lane>
 source_room: NovaBridge
 active_lane: nova-dev
 target_worker_profile: nova
-repo_ref: NovaUniverse
-workspace_ref: C:\projects\NovaUniverse
+repo_ref: Nova
+workspace_ref: C:\projects\Nova
 requested_by: nova
 ```
 

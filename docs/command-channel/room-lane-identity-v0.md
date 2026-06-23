@@ -65,7 +65,7 @@ Full field definitions (paths, guardrails, templates): [`config/room-lanes.examp
 2. For **JUB**: load GSync accepted packets (`gsync/packets/accepted/`); publish/consume via packet IDs — not JOA dev identity.
 3. For **GSync**: direct development via `target_worker_profile: gsync`, workspace `juos-knowledge-vault`, writes under `gsync/**`; registry + optional `jucore` jobs against `JuCore`; `requested_by: gsync`.
 4. For **NovaBridge**: use `target_worker_profile: nova` and `source_room: NovaBridge` when lane is approved; until then, document-only.
-5. For **JOA**: only TimOS-Agent scoped work with `target_worker_profile: joa`.
+5. For **JOA**: JuOS runtime work in the TimOS-Agent repo with `target_worker_profile: joa`.
 
 ## No-impersonation rule
 
@@ -171,7 +171,7 @@ Goal: prove end-to-end flow with **no unintended file changes**. Same bar as [`c
 | All development questions routed to JOA chat | Each lane owns its guardrails and handoff template |
 | Bridge status shows profile only | Future UI can show origin room vs execution profile |
 
-JOA remains the **TimOS-Agent primary dev lane**, not the identity for every other room.
+JOA remains the **JuOS execution/runtime lane** in the TimOS-Agent repo, not the identity for every other room.
 
 ## Before first non-JOA lane activation
 
@@ -192,7 +192,7 @@ JOA remains the **TimOS-Agent primary dev lane**, not the identity for every oth
 
 ## config/workspaces.json
 
-No change in v0. Current file lists TimOS-Agent, TimFinance, NovaUniverse only. SpaceA and MinistryOps targets live in [`config/workspace-targets.json`](../../config/workspace-targets.json). If a future `workspaces.json` consolidation is desired, document in a Tim-approved task — do not auto-edit.
+Phase 2A registry alignment uses [`config/juos-room-registry.json`](../../config/juos-room-registry.json) for command-channel profiles. Legacy `config/workspaces.json` is not the runtime source of truth.
 
 ## Blockers / risks
 

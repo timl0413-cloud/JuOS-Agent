@@ -81,7 +81,7 @@ Per-job claim (when loop is not running):
 Node equivalent:
 
 ```powershell
-node scripts/command-channel-worker.js --http --once --worker-profile joa --job-id <job-uuid> --cursor-agent
+node scripts/command-channel-worker.js --http --once --worker-profile joa --job-id <job-uuid> --provider codex
 ```
 
 Persistent multi-profile hubs: `scripts/start-worker-hubs.ps1` (all lanes, separate windows).

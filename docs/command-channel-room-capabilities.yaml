@@ -46,15 +46,15 @@ confirmed_worker_profiles:
     notes: Local Gsync/JuCore scaffold; Tim approved for command-channel routing.
 
   nova:
-    repo_ref: NovaUniverse
-    workspace_ref: "C:\\projects\\NovaUniverse"
+    repo_ref: Nova
+    workspace_ref: "C:\\projects\\Nova"
     worker_hub: scripts/start-worker-hubs.ps1 (Nova Worker Hub)
     task_types:
       - inspect_only
       - supervised_implement
       - approved_finalize
     status: added
-    notes: Local NovaUniverse workspace; Tim approved for command-channel routing.
+    notes: Local Nova workspace; Tim approved for command-channel routing.
 
   gsync:
     repo_ref: juos-knowledge-vault

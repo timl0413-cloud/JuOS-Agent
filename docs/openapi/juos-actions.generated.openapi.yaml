@@ -2,7 +2,7 @@
 openapi: 3.1.0
 info:
   title: JuOS Command Center GPT Actions
-  description: Generated JuOS action schema with TimOS tasks and command-channel jobs.
+  description: Generated JuOS action schema with JuOS task and command-channel actions.
   version: 1.0.0
 servers:
   - url: https://juos.vercel.app

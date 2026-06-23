@@ -122,10 +122,10 @@
       "source_room": "NovaBridge",
       "active_lane": "nova-dev",
       "allowed_worker_profiles": ["nova"],
-      "repo_ref": "NovaUniverse",
-      "workspace_ref": "C:\\projects\\NovaUniverse",
+      "repo_ref": "Nova",
+      "workspace_ref": "C:\\projects\\Nova",
       "allowed_paths": [
-        "C:\\projects\\NovaUniverse/**"
+        "C:\\projects\\Nova/**"
       ],
       "forbidden_paths": [
         "TimOS-Agent command-channel runtime changes unless scoped job",

@@ -106,7 +106,7 @@ Start a **separate** persistent loop for profile `gsync` (one loop per profile):
 
 ```powershell
 # From token-loaded supervisor shell:
-node scripts/command-channel-worker.js --http --worker-profile gsync --cursor-agent
+node scripts/command-channel-worker.js --http --worker-profile gsync --provider codex
 ```
 
 Or via helper:

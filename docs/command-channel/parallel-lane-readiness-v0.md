@@ -15,7 +15,7 @@ Operator guide for reaching **2–3 simultaneous active jobs** safely. Read-only
 Tim approves jobs
     |
     +-- JOA loop        --> C:\projects\TimOS-Agent     (active now)
-    +-- Nova hub        --> C:\projects\NovaUniverse    (ready to test)
+    +-- Nova hub        --> C:\projects\Nova            (ready to test)
     +-- Finance hub     --> C:\projects\TimFinance      (ready to test)
     +-- SpaceA hub      --> per-job workspace targets   (ready to test)
     +-- Ministry hub    --> per-job workspace targets   (ready to test)
@@ -39,7 +39,7 @@ Tim approves jobs
 | Room | `source_room` | `active_lane` | Profile | Workspace | Readiness | Parallel slot |
 |------|---------------|---------------|---------|-----------|-----------|---------------|
 | **JOA** | `JOA` | `joa-dev` | `joa` | `C:\projects\TimOS-Agent` | **Active now** | **Slot 1 (in use)** |
-| **NovaBridge (NB)** | `NovaBridge` | `nova-dev` | `nova` | `C:\projects\NovaUniverse` | **Ready to test** | **Slot 2 candidate** |
+| **NovaBridge (NB)** | `NovaBridge` | `nova-dev` | `nova` | `C:\projects\Nova` | **Ready to test** | **Slot 2 candidate** |
 | **Finance / JFA** | `JFA` | `finance-dev` | `finance` | `C:\projects\TimFinance` | **Ready to test** | **Slot 2–3 candidate** |
 | **SpaceA** | `SpaceA` | `spacea-bridge` | `spacea` | per job | **Ready to test** | Slot 3 when hub runs |
 | **MinistryOps** | `MinistryOps` | `ministry-bridge` | `ministry` | per job | **Ready to test** | Slot 3 when hub runs |
@@ -57,9 +57,9 @@ Full registry fields: [`config/room-lanes.example.json`](../../config/room-lanes
 
 | Reason | Detail |
 |--------|--------|
-| Isolated workspace | `NovaUniverse` is separate from TimOS-Agent — no same-repo concurrency risk |
+| Isolated workspace | `Nova` is separate from the JuOS runtime repo — no same-repo concurrency risk |
 | Profile confirmed | `nova` in [`command-channel-room-capabilities.yaml`](../command-channel-room-capabilities.yaml) |
-| Clear domain | Knowledge Vault / NovaUniverse work should not route through JOA identity |
+| Clear domain | Nova work should not route through JOA identity |
 | Low blast radius | Docs and Nova-scoped changes do not collide with TimOS-Agent jobs |
 
 **Second parallel slot:** **Finance** (`TimFinance` workspace) — same isolation pattern once Nova smoke test passes.
@@ -94,8 +94,8 @@ Every job must declare true origin and execution target:
 source_room: NovaBridge          # who originated (ChatGPT room)
 active_lane: nova-dev            # lane id from registry
 target_worker_profile: nova      # worker that claims
-repo_ref: NovaUniverse
-workspace_ref: C:\projects\NovaUniverse
+repo_ref: Nova
+workspace_ref: C:\projects\Nova
 requested_by: nova               # or room-specific id — not joa for NB work
 ```
 

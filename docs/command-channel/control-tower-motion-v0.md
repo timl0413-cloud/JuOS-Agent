@@ -119,7 +119,7 @@ Safe target: **2–3 simultaneous active jobs** via **separate lanes/workspaces*
 |--------|----------|
 | Active writer lanes now | **1** (JOA on Station 1) |
 | Safe parallel target | **2–3** |
-| Next slot candidate | **NovaBridge** (`nova` → `NovaUniverse`) |
+| Next slot candidate | **NovaBridge** (`nova` → `Nova`) |
 
 ### Readiness categories
 
