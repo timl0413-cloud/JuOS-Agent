@@ -469,7 +469,7 @@ function findCommandOnPath(commandNames) {
 }
 
 function findCodexCommand() {
-  const command = findCommandOnPath(["codex.cmd", "codex.exe"]);
+  const command = findCommandOnPath(["codex.exe", "codex.cmd"]);
   if (!command) {
     throw new Error("Codex provider requested but codex.cmd/codex.exe was not found in PATH");
   }
@@ -485,15 +485,72 @@ function isWindowsCommandShim(commandPath) {
   return ext === ".cmd" || ext === ".bat";
 }
 
+function resolveCodexCommandShim(commandPath) {
+  if (path.extname(String(commandPath || "")).toLowerCase() !== ".cmd") {
+    return null;
+  }
+
+  const shimDir = path.dirname(commandPath);
+  const scriptPath = path.join(
+    shimDir,
+    "node_modules",
+    "@openai",
+    "codex",
+    "bin",
+    "codex.js"
+  );
+
+  if (!fileExists(scriptPath)) {
+    return null;
+  }
+
+  const bundledNodePath = path.join(shimDir, "node.exe");
+  return {
+    command: fileExists(bundledNodePath) ? bundledNodePath : "node",
+    argsPrefix: [scriptPath],
+  };
+}
+
+function quoteCmdArgument(value) {
+  const text = String(value ?? "");
+  return `"${text.replace(/"/g, '\\"')}"`;
+}
+
+function buildCmdCommandLine(commandPath, args) {
+  return [
+    quoteCmdArgument(commandPath),
+    ...args.map((arg) => quoteCmdArgument(arg)),
+  ].join(" ");
+}
+
+function getCodexSpawnMode(commandPath) {
+  if (!isWindowsCommandShim(commandPath)) {
+    return "direct";
+  }
+
+  if (resolveCodexCommandShim(commandPath)) {
+    return "node_shim";
+  }
+
+  return "cmd_quoted";
+}
+
 function spawnCodexCommand(commandPath, args, options) {
   if (!isWindowsCommandShim(commandPath)) {
     return spawnSync(commandPath, args, options);
   }
 
-  return spawnSync(commandPath, args, {
-    ...options,
-    shell: true,
-  });
+  const nodeShim = resolveCodexCommandShim(commandPath);
+  if (nodeShim) {
+    return spawnSync(nodeShim.command, [...nodeShim.argsPrefix, ...args], options);
+  }
+
+  return spawnSync(process.env.ComSpec || "cmd.exe", [
+    "/d",
+    "/s",
+    "/c",
+    buildCmdCommandLine(commandPath, args),
+  ], options);
 }
 
 function readCodexExecHelp(commandPath) {
@@ -1120,6 +1177,7 @@ function runCodexAgentForJob(claimedJob) {
     codex_agent: {
       command: codexCommand,
       windows_command_shim: isWindowsCommandShim(codexCommand),
+      spawn_mode: getCodexSpawnMode(codexCommand),
       arg_compatibility: codexInvocation.compatibility,
       mode: supervised ? "supervised_implement" : "inspect",
       exit_status: result.status,
