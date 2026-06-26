@@ -496,6 +496,59 @@ function spawnCodexCommand(commandPath, args, options) {
   });
 }
 
+function readCodexExecHelp(commandPath) {
+  try {
+    const result = spawnCodexCommand(commandPath, ["exec", "--help"], {
+      encoding: "utf8",
+      timeout: 15 * 1000,
+      maxBuffer: 1024 * 1024,
+    });
+
+    return {
+      ok: result.status === 0 && !result.error,
+      text: `${result.stdout || ""}\n${result.stderr || ""}`,
+      error: result.error?.message || null,
+      status: result.status,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      text: "",
+      error: error?.message || String(error),
+      status: null,
+    };
+  }
+}
+
+function buildCodexExecArgs(commandPath, executionWorkspace, prompt) {
+  const help = readCodexExecHelp(commandPath);
+  const args = ["exec"];
+  const supportsCd = help.text.includes("--cd");
+  const supportsSandbox = help.text.includes("--sandbox");
+
+  if (supportsCd) {
+    args.push("--cd", executionWorkspace);
+  }
+
+  if (supportsSandbox) {
+    args.push("--sandbox", "workspace-write");
+  }
+
+  args.push(prompt);
+
+  return {
+    args,
+    compatibility: {
+      help_checked: help.ok,
+      help_status: help.status,
+      help_error: help.error,
+      cd_flag: supportsCd,
+      sandbox_flag: supportsSandbox,
+      approval_flag: false,
+    },
+  };
+}
+
 
 function normalizeWorkspaceRef(value) {
   return String(value || "")
@@ -1017,19 +1070,10 @@ function runCodexAgentForJob(claimedJob) {
   const executionWorkspace = workspaceValidation.workspaceRef;
   const codexCommand = findCodexCommand();
   const prompt = buildCodexAgentPrompt(claimedJob);
-  const codexArgs = [
-    "exec",
-    "--cd",
-    executionWorkspace,
-    "--sandbox",
-    "workspace-write",
-    "--ask-for-approval",
-    "never",
-    prompt,
-  ];
+  const codexInvocation = buildCodexExecArgs(codexCommand, executionWorkspace, prompt);
   const supervised = isSupervisedImplementJob(claimedJob);
 
-  const result = spawnCodexCommand(codexCommand, codexArgs, {
+  const result = spawnCodexCommand(codexCommand, codexInvocation.args, {
     cwd: executionWorkspace,
     encoding: "utf8",
     timeout: supervised ? 10 * 60 * 1000 : 3 * 60 * 1000,
@@ -1076,6 +1120,7 @@ function runCodexAgentForJob(claimedJob) {
     codex_agent: {
       command: codexCommand,
       windows_command_shim: isWindowsCommandShim(codexCommand),
+      arg_compatibility: codexInvocation.compatibility,
       mode: supervised ? "supervised_implement" : "inspect",
       exit_status: result.status,
       stderr: stderr || null,
