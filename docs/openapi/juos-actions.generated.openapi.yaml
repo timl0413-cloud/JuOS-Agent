@@ -259,6 +259,41 @@ paths:
           description: Job not found
         "503":
           description: Command-channel storage or auth not configured
+  /api/command-channel/remote-jobs/{id}/summary:
+    get:
+      operationId: getCommandChannelJobSummary
+      summary: Read a compact command-channel job summary
+      description: Read compact job status and result summary without loading large full job results.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Compact remote job summary
+        "400":
+          description: Invalid job id
+        "401":
+          description: Unauthorized
+        "404":
+          description: Job not found
+        "503":
+          description: Command-channel storage or auth not configured
+  /api/command-channel/diagnostics:
+    get:
+      operationId: getCommandChannelDiagnostics
+      summary: Read command-channel diagnostics
+      description: Read compact command-channel jobs contract diagnostics from the hosted backend.
+      responses:
+        "200":
+          description: Command-channel diagnostics
+        "401":
+          description: Unauthorized
+        "503":
+          description: Command-channel storage or auth not configured
   /api/command-channel/remote-jobs/{id}/approve:
     post:
       operationId: approveCommandChannelJob

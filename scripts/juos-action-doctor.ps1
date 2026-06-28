@@ -54,6 +54,8 @@ $RequiredOperationIds = @(
   "createApprovedFinalizeCommandChannelJob",
   "createSupervisedImplementCommandChannelJob",
   "getCommandChannelJob",
+  "getCommandChannelJobSummary",
+  "getCommandChannelDiagnostics",
   "approveCommandChannelJob"
 )
 
