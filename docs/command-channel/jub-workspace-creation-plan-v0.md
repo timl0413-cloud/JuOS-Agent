@@ -4,6 +4,95 @@ Phase 3C-5 defines the proposed `C:\projects\JUB` creation plan without creating
 
 **Status:** planning and documentation only. JUB remains non-executable: no local workspace, no `jub` worker profile, no live backend runtime, and no GPT Action schema change.
 
+## Phase 3C-10 Approval Packet
+
+This packet is the required approval plan for a future inert `C:\projects\JUB` workspace creation job. It does not approve or perform creation by itself.
+
+### Exact Tim Approval Question
+
+Tim must answer this exact question before any workspace creation command is run:
+
+> Do you approve creating `C:\projects\JUB` as an inert docs-first workspace only, with README/docs/lane-contract materials and no backend runtime, no worker runtime, no protected-value files, no live registry/profile/schema exposure, no TimFinance edits, no JuCore edits, no generated GPT Action schema edits, no GPT UI changes, no deploy actions, and no source-control commit/push?
+
+Acceptable answer: an explicit yes approving the exact inert creation scope above. Any broader, ambiguous, or conditional answer requires a revised approval packet before proceeding.
+
+### Pre-Create Checklist
+
+All items must be true immediately before the future creation step:
+
+- `TimOS-Agent` working tree is clean or contains only the approved creation-job documentation changes.
+- `TimFinance` working tree state is understood and not touched.
+- JuCore local-only commit note is acknowledged before any nearby contract or shared-boundary discussion.
+- `scripts\juos-jub-registry-dry-run.ps1` passes, including fail-closed treatment of absent `C:\projects\JUB`.
+- `C:\projects\JUB` is absent.
+- Tim has approved the exact question in this packet for the current job.
+
+### Proposed Commands - Do Not Run Yet
+
+The following commands are proposed for the future approved creation job only. They are not part of Phase 3C-10 and must not be run until Tim approves the exact approval question above.
+
+```powershell
+# Future approved job only - do not run during planning.
+Test-Path C:\projects\JUB
+New-Item -ItemType Directory -Path C:\projects\JUB
+New-Item -ItemType Directory -Path C:\projects\JUB\docs
+Set-Location C:\projects\JUB
+git init
+New-Item -ItemType File -Path README.md
+New-Item -ItemType File -Path docs\lane-contract.md
+New-Item -ItemType File -Path docs\hosted-ownership-boundary.md
+New-Item -ItemType File -Path docs\validation-gates.md
+git status --short
+```
+
+If `C:\projects\JUB` already exists, stop instead of reusing, deleting, or overwriting it.
+
+### Initial Workspace Contents
+
+The approved inert workspace should contain only:
+
+- `README.md` describing JUB as an inert docs-first platform-operations workspace.
+- `docs\` for planning and validation documents.
+- A lane contract copy or pointer to `C:\projects\TimOS-Agent\docs\command-channel\jub-lane-contract-v0.md`.
+- No backend runtime.
+- No worker runtime.
+- No protected-value files.
+- No generated GPT Action schema treated as source of truth.
+- No deployment scripts, service start scripts, DB migrations, env files, tokens, or credential material.
+
+### Post-Create Inert Validation Checklist
+
+Run these checks after the future approved inert creation job:
+
+- `git status --short` in `C:\projects\TimOS-Agent` shows only approved planning or creation-job docs changes.
+- `git status --short` in `C:\projects\JUB` shows only the expected new inert docs scaffold.
+- `scripts\juos-jub-registry-dry-run.ps1` still passes from `C:\projects\TimOS-Agent`.
+- No live registry profile, worker profile, backend validator, or generated GPT Action schema exposes `jub`.
+- Existing command-channel operations for `joa`, `finance`, `ob`, `jucore`, `gsync`, `nova`, `spacea`, and `ministry` still work as before.
+- No TimFinance, JuCore, backend, registry, generated schema, GPT UI, protected-value, deploy, or release files were touched.
+
+### Stop Conditions and No-Go Items
+
+Stop before or during the future creation job if any condition is true:
+
+- Tim has not explicitly approved the exact approval question in this packet.
+- `C:\projects\JUB` already exists.
+- `TimOS-Agent` has unexplained or unrelated working tree changes.
+- `TimFinance` would need to be edited, cleaned, committed, or otherwise changed.
+- JuCore local-only commit context is not acknowledged where shared contracts are discussed.
+- `scripts\juos-jub-registry-dry-run.ps1` fails for any reason other than the expected documented fail-closed absent-workspace behavior.
+- Any step requires changes to `config\juos-room-registry.json`, worker code, backend code, generated GPT Action schema, GPT UI configuration, protected-value files, deployment settings, DB schema, tokens, or release state.
+- A proposed file would make `jub` claimable, executable, schema-visible, or treated as a live worker profile.
+- A credential value would need to be read, copied, documented, or printed.
+
+### Next Jobs After Approved Workspace Creation
+
+After a separate approved creation job completes, the next jobs should be:
+
+1. Create the inert `C:\projects\JUB` workspace exactly within the approved docs-only scope.
+2. Build an inventory extraction map from TimFinance into JUB docs, inspect-only unless Tim separately approves edits.
+3. Add a shadow registry candidate file only if Tim explicitly approves that file, location, shape, and validation behavior.
+
 ## Recommended Creation Strategy
 
 | Option | Decision | Rationale |
