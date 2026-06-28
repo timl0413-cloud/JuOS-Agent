@@ -185,6 +185,7 @@ Safe changes are limited to inert documentation under `docs/command-channel/` an
 ## Related
 
 - [`jub-lane-contract-v0.md`](./jub-lane-contract-v0.md)
+- [`jub-registry-dry-run-plan-v0.md`](./jub-registry-dry-run-plan-v0.md)
 - [`room-lane-identity-v0.md`](./room-lane-identity-v0.md)
 - [`../command-channel-repo-routing.md`](../command-channel-repo-routing.md)
 - [`../command-channel-room-capabilities.yaml`](../command-channel-room-capabilities.yaml)
