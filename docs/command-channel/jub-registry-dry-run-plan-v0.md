@@ -60,7 +60,7 @@ Dry-run principles:
 
 1. Add this doc-only dry-run plan in TimOS-Agent.
 2. After explicit Tim approval, create an inert `C:\projects\JUB` workspace with docs-only contents. Do not add runtime, deploy, DB, schema, token, or worker files.
-3. Add registry dry-run mode in a separate approved implementation. It should read either a shadow candidate file or explicit candidate arguments, never mutate `config/juos-room-registry.json` by default.
+3. Add registry dry-run mode in a separate approved implementation. It should read either a shadow candidate file or explicit candidate arguments, never mutate `config/juos-room-registry.json` by default. Phase 3C-9 adds `scripts\juos-jub-registry-dry-run.ps1` for this report-only validation.
 4. Validate the shadow JUB candidate without live routing:
    - registry shape passes
    - workspace exists
@@ -116,11 +116,21 @@ Allowed changes for this phase are limited to inert documentation under `docs/co
 
 Disallowed files and locations include `config/juos-room-registry.json`, worker code, backend code, generated OpenAPI files, GPT UI configuration, protected-value files, `C:\projects\JUB`, `C:\projects\TimFinance`, and `C:\projects\JuCore`.
 
+## Safe Allowlist for Phase 3C-9
+
+Allowed changes for Phase 3C-9 are limited to:
+
+- `scripts\juos-jub-registry-dry-run.ps1`
+- `docs\command-channel\jub-registry-dry-run-plan-v0.md`
+
+The dry-run script reads the live registry and generated GPT Action schema, validates a shadow JUB candidate in memory, and exits without writing registry, schema, worker, backend, GPT UI, protected-value, or external workspace files.
+
 ## Validation Commands
 
-Run these after doc updates:
+Run these after dry-run tooling or doc updates:
 
 ```powershell
+scripts\juos-jub-registry-dry-run.ps1
 scripts\juos-action-doctor.ps1
 scripts\juos-station-doctor.ps1 -ReportOnly
 git status --short
@@ -128,9 +138,22 @@ git status --short
 
 Expected interpretation:
 
+- JUB dry-run should pass only when `joa`, `finance`, and `ob` still match the immutable baseline; `jub` is absent from the live registry and generated action schema; the candidate is `status=shadow`; `live_claim_enabled` and `schema_exposed` are false; and `C:\projects\JUB` absence is treated as a fail-closed non-executable route.
 - Action doctor should pass with no `jub` enum required because `jub` is not live.
 - Station doctor should remain report-only and should not check `C:\projects\JUB` until a future dry-run candidate is intentionally supplied.
-- Git status should show only approved documentation changes.
+- Git status should show only approved Phase 3C-9 script and documentation changes.
+
+Optional explicit candidate arguments:
+
+```powershell
+scripts\juos-jub-registry-dry-run.ps1 `
+  -CandidateProfile jub `
+  -CandidateRepoRef JUB `
+  -CandidateWorkspaceRef C:\projects\JUB `
+  -CandidateStatus shadow
+```
+
+Do not pass `-LiveClaimEnabled` or `-SchemaExposed` during dry-run. Either flag is a failure because it would make the candidate claimable or visible to GPT Action schema expectations before activation approval.
 
 ## Related
 
