@@ -6,6 +6,7 @@ See also:
 
 - [`command-channel-room-capabilities.yaml`](./command-channel-room-capabilities.yaml) — room/GPT capability registry
 - [`command-channel/room-lane-identity-v0.md`](./command-channel/room-lane-identity-v0.md) — room/lane identity registry (`source_room`, `active_lane`)
+- [`command-channel/jub-lane-contract-v0.md`](./command-channel/jub-lane-contract-v0.md) — JUB lane contract and registry plan before any workspace creation
 - [`command-channel/gsync-direct-execution-path-v0.md`](./command-channel/gsync-direct-execution-path-v0.md) — GSync direct development route
 - [`bridge/xiaoju-command-channel.md`](./bridge/xiaoju-command-channel.md) — no-paste flow and security boundary
 - [`bridge/worker-routing-contract.md`](./bridge/worker-routing-contract.md) — coordinator routing fields and algorithm
@@ -105,6 +106,7 @@ Full registry: [`command-channel-room-capabilities.yaml`](./command-channel-room
 | Planned scope | Status |
 |---------------|--------|
 | Gsync / JuCore local scaffold | **Added** — local workspace `C:\projects\JuCore` with `jucore` profile (Tim approved); not a separate remote repo |
+| JUB hosted platform-operation lane | **Documentation only** — no `C:\projects\JUB`, no `jub` worker profile, no backend extraction yet; see [`jub-lane-contract-v0.md`](./command-channel/jub-lane-contract-v0.md) |
 | Core repo | **TBD** — placeholder only; do not create automatically |
 
 When additional repos exist beyond the local JuCore scaffold, add worker profiles and registry entries only after Tim approval. Gsync/Core rooms may create jobs against confirmed profiles when task payload and running hubs match.

@@ -39,6 +39,7 @@ Target repo / workspace
 | [`config/room-lanes.example.json`](../../config/room-lanes.example.json) | Machine-readable lane entries (example only; not loaded by runtime in v0) |
 | [`templates/command-channel/room-identity-card.md`](../../templates/command-channel/room-identity-card.md) | Paste-at-session-start card for new or memory-less ChatGPT rooms |
 | [`command-channel-room-capabilities.yaml`](../command-channel-room-capabilities.yaml) | Existing worker profile and GPT room capabilities |
+| [`jub-lane-contract-v0.md`](./jub-lane-contract-v0.md) | JUB lane contract, registry prerequisites, and no-go items before any workspace creation |
 | [`gsync/registry/routes.yaml`](../../gsync/registry/routes.yaml) | GSync cross-room route metadata (JUB → GSync → JEX) |
 
 To activate a local copy after Tim approval: copy `room-lanes.example.json` → `room-lanes.json` (still documentation-side until explicitly wired).
@@ -190,6 +191,8 @@ JOA remains the **JuOS execution/runtime lane** in the TimOS-Agent repo, not the
 | **NovaBridge** | Room Identity Card in NB instructions; confirm Nova hub operational |
 | **JEX** | GSync → JEX route used for handoffs; no worker until profile defined and approved |
 
+JUB-specific contract and registry prerequisites are defined in [`jub-lane-contract-v0.md`](./jub-lane-contract-v0.md). That contract keeps JUB documentation-only until target strategy, backend validation, profile routing, schema strategy, hosted service ownership, and DB visibility are approved.
+
 ## config/workspaces.json
 
 Phase 2A registry alignment uses [`config/juos-room-registry.json`](../../config/juos-room-registry.json) for command-channel profiles. Legacy `config/workspaces.json` is not the runtime source of truth.
@@ -209,5 +212,6 @@ Phase 2A registry alignment uses [`config/juos-room-registry.json`](../../config
 
 - [`command-channel-repo-routing.md`](../command-channel-repo-routing.md)
 - [`command-channel-room-capabilities.yaml`](../command-channel-room-capabilities.yaml)
+- [`jub-lane-contract-v0.md`](./jub-lane-contract-v0.md)
 - [`no-stranded-job-v0.md`](./no-stranded-job-v0.md)
 - [`gsync/README.md`](../../gsync/README.md)
