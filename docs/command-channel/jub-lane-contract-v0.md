@@ -60,7 +60,7 @@ Do not create `C:\projects\JUB` until all prerequisites below have an approved a
 ## Proposed Staged Sequence
 
 1. **Inert contract docs** - Capture lane purpose, no-go items, and registry requirements in TimOS-Agent docs only.
-2. **JUB workspace creation plan** - Write the path/repo/service strategy, including whether `C:\projects\JUB` is needed.
+2. **JUB workspace creation plan** - Write the path/repo/service strategy, including whether `C:\projects\JUB` is needed. See [`jub-workspace-creation-plan-v0.md`](./jub-workspace-creation-plan-v0.md).
 3. **Registry/profile addition** - Add any `jub` room/profile entries only after Tim approves the target strategy.
 4. **Backend extraction candidate inventory** - Inventory hosted command-channel, GPT Action, validation, schema, and DB contract files without moving code.
 5. **Dry-run validation** - Prove inspect-only route/profile/schema behavior without file changes or production ownership changes.
@@ -117,6 +117,7 @@ For Phase 3C-4, safe changes are limited to inert documentation under `docs/` th
 ## Related
 
 - [`room-lane-identity-v0.md`](./room-lane-identity-v0.md)
+- [`jub-workspace-creation-plan-v0.md`](./jub-workspace-creation-plan-v0.md)
 - [`parallel-lane-readiness-v0.md`](./parallel-lane-readiness-v0.md)
 - [`../command-channel-repo-routing.md`](../command-channel-repo-routing.md)
 - [`../command-channel-room-capabilities.yaml`](../command-channel-room-capabilities.yaml)
