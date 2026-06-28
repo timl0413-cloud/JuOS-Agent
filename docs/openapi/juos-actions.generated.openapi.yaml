@@ -215,18 +215,91 @@ paths:
         content:
           application/json:
             schema:
-              allOf:
-                - $ref: '#/components/schemas/CreateCommandChannelJobRequest'
-                - type: object
-                  required: [prompt, no_source_control_actions]
-                  properties:
-                    task_type:
-                      type: string
-                      enum: [supervised_implement]
-                    no_source_control_actions:
-                      type: boolean
-                      enum: [true]
-                      description: Must be true. Blocks commit, push, and source-control actions.
+              type: object
+              required:
+                - repo_ref
+                - workspace_ref
+                - target_worker_profile
+                - task_type
+                - risk_level
+                - auto_run_requested
+                - approval_required
+                - plan_summary
+                - prompt
+                - no_source_control_actions
+              properties:
+                repo_ref:
+                  type: string
+                  enum:
+                    - 'JuCore'
+                    - 'juos-knowledge-vault'
+                    - 'Nova'
+                    - 'STUF'
+                    - 'TimFinance'
+                    - 'TimOS-Agent'
+                  description: Repository id from config/juos-room-registry.json.
+                workspace_ref:
+                  type: string
+                  enum:
+                    - 'C:\projects\JuCore'
+                    - 'C:\projects\juos-knowledge-vault'
+                    - 'C:\projects\Nova'
+                    - 'C:\projects\SpaceA\STUF-Website'
+                    - 'C:\projects\TimFinance'
+                    - 'C:\projects\TimOS-Agent'
+                  description: Workspace path from config/juos-room-registry.json.
+                target_worker_profile:
+                  type: string
+                  enum:
+                    - 'finance'
+                    - 'gsync'
+                    - 'joa'
+                    - 'jucore'
+                    - 'nova'
+                    - 'ob'
+                    - 'stuf'
+                  description: Worker profile from the generated JuOS room registry.
+                task_type:
+                  type: string
+                  enum: [supervised_implement]
+                risk_level:
+                  type: string
+                  enum: [low]
+                auto_run_requested:
+                  type: boolean
+                  enum: [true]
+                approval_required:
+                  type: boolean
+                  enum: [true]
+                no_source_control_actions:
+                  type: boolean
+                  enum: [true]
+                  description: Must be true. Blocks commit, push, and source-control actions.
+                plan_summary:
+                  type: string
+                  description: Non-empty plan for Tim review and worker execution.
+                prompt:
+                  type: string
+                  description: Worker prompt. Do not include deploy, env, secrets, commit, or push instructions.
+                requested_by:
+                  type: string
+                  description: Optional requester label. Defaults to xiaoju when omitted.
+                allowlist_paths:
+                  type: array
+                  items:
+                    type: string
+                  description: Optional paths allowed during approved finalization.
+                ignore_paths:
+                  type: array
+                  items:
+                    type: string
+                  description: Optional paths to skip during approved finalization.
+                message:
+                  type: string
+                  description: Optional short finalization note for the worker.
+                target_branch:
+                  type: string
+                  description: Optional branch label for review context only.
       responses:
         "201":
           description: Job created and awaiting approval
