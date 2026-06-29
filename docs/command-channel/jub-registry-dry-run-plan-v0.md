@@ -2,7 +2,7 @@
 
 Phase 3C-8 defines how a future JUB profile/workspace addition must be validated before any live registry, runtime, backend, schema, or GPT Action change.
 
-**Status:** documentation and planning only. `jub` is not a valid command-channel execution target, `C:\projects\JUB` does not exist, and live routing remains unchanged.
+**Status as of Phase 3C-13:** documentation and planning only. `jub` is not a valid command-channel execution target, `C:\projects\JUB` exists locally as an inert docs-first shadow workspace, and live routing remains unchanged.
 
 ## Current Immutable Routing Baseline
 
@@ -39,6 +39,7 @@ Dry-run principles:
 
 - No live claim route exists for `target_worker_profile: jub` until workspace creation, validator support, worker startup safety, backend compatibility, and schema strategy all pass.
 - Validation must fail closed while `C:\projects\JUB` is absent. A missing workspace is a blocker, not a warning, for any proposed active or dry-run executable JUB entry.
+- When `C:\projects\JUB` exists, dry-run validation may confirm the inert workspace path, but existence alone must not make JUB executable, claimable, or schema-visible.
 - The shadow entry must not be loaded by `scripts\start-juos-worker-hub.ps1` or `scripts\start-worker-hubs.ps1` as a live hub profile.
 - The dry-run may prove that a future entry is structurally valid, but it must still prove that live job creation rejects `target_worker_profile: jub` until activation is separately approved.
 - Finance and OB mappings are not part of the JUB experiment and must remain mapped to TimFinance.
@@ -103,7 +104,8 @@ Stop the future dry-run or activation task if any condition is true:
 | Is `jub` a valid worker profile today? | No. | Separate approval plus registry, backend, worker, and schema validation. |
 | Should JUB be added to live registry now? | No. | Dry-run tooling and inert workspace must exist first. |
 | Can a shadow JUB entry be documented? | Yes. | It must remain outside live routing and schema exposure. |
-| Should validation pass while `C:\projects\JUB` is absent? | No. | Missing workspace is a blocker for executable validation. |
+| Does local `C:\projects\JUB` existence make JUB live? | No. | It only allows inert shadow-path validation. |
+| Should validation pass while `C:\projects\JUB` is absent? | No for executable validation. | Missing workspace is a blocker for executable validation. |
 | Should live backend accept JUB during dry-run? | No. | Acceptance only after activation approval. |
 | Should GPT Action schema include JUB during dry-run? | No. | Schema strategy and import require separate approval. |
 | Can JUB inherit Finance or OB routing? | No. | Finance and OB stay TimFinance unless separately migrated. |
@@ -125,6 +127,18 @@ Allowed changes for Phase 3C-9 are limited to:
 
 The dry-run script reads the live registry and generated GPT Action schema, validates a shadow JUB candidate in memory, and exits without writing registry, schema, worker, backend, GPT UI, protected-value, or external workspace files.
 
+## Safe Allowlist for Phase 3C-13
+
+Allowed changes for Phase 3C-13 are limited to TimOS-Agent docs under `docs\command-channel\` that record current JUB shadow state, baseline files, worker access boundary, and manual-write protocol.
+
+Current JUB no-go items remain:
+
+- No live registry profile `jub`.
+- No GPT Action schema exposure for `jub`.
+- No TimFinance code copy.
+- No protected-value files.
+- No backend runtime or worker runtime until a separate approval gate.
+
 ## Validation Commands
 
 Run these after dry-run tooling or doc updates:
@@ -139,9 +153,10 @@ git status --short
 Expected interpretation:
 
 - JUB dry-run should pass only when `joa`, `finance`, and `ob` still match the immutable baseline; `jub` is absent from the live registry and generated action schema; the candidate is `status=shadow`; `live_claim_enabled` and `schema_exposed` are false; and `C:\projects\JUB` absence is treated as a fail-closed non-executable route.
+- If `C:\projects\JUB` exists, JUB dry-run may pass only when the workspace is still shadow-only and all live-route and schema exposure checks remain closed.
 - Action doctor should pass with no `jub` enum required because `jub` is not live.
 - Station doctor should remain report-only and should not check `C:\projects\JUB` until a future dry-run candidate is intentionally supplied.
-- Git status should show only approved Phase 3C-9 script and documentation changes.
+- Git status should show only approved documentation changes for Phase 3C-13.
 
 Optional explicit candidate arguments:
 
@@ -159,6 +174,7 @@ Do not pass `-LiveClaimEnabled` or `-SchemaExposed` during dry-run. Either flag 
 
 - [`jub-lane-contract-v0.md`](./jub-lane-contract-v0.md)
 - [`jub-workspace-creation-plan-v0.md`](./jub-workspace-creation-plan-v0.md)
+- [`jub-workspace-access-boundary-v0.md`](./jub-workspace-access-boundary-v0.md)
 - [`backend-validation-alignment-plan.md`](./backend-validation-alignment-plan.md)
 - [`room-lane-identity-v0.md`](./room-lane-identity-v0.md)
 - [`../command-channel-repo-routing.md`](../command-channel-repo-routing.md)

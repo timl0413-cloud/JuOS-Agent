@@ -106,7 +106,7 @@ Full registry: [`command-channel-room-capabilities.yaml`](./command-channel-room
 | Planned scope | Status |
 |---------------|--------|
 | Gsync / JuCore local scaffold | **Added** — local workspace `C:\projects\JuCore` with `jucore` profile (Tim approved); not a separate remote repo |
-| JUB hosted platform-operation lane | **Documentation only** — no `C:\projects\JUB`, no `jub` worker profile, no backend extraction yet; see [`jub-lane-contract-v0.md`](./command-channel/jub-lane-contract-v0.md) |
+| JUB hosted platform-operation lane | **Documentation only** — `C:\projects\JUB` exists locally as an inert shadow workspace, with no `jub` worker profile, no backend extraction, no registry route, and no GPT Action schema exposure; see [`jub-workspace-access-boundary-v0.md`](./command-channel/jub-workspace-access-boundary-v0.md) |
 | Core repo | **TBD** — placeholder only; do not create automatically |
 
 When additional repos exist beyond the local JuCore scaffold, add worker profiles and registry entries only after Tim approval. Gsync/Core rooms may create jobs against confirmed profiles when task payload and running hubs match.

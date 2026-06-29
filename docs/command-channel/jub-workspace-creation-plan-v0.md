@@ -2,7 +2,9 @@
 
 Phase 3C-5 defines the proposed `C:\projects\JUB` creation plan without creating the workspace, moving backend code, changing registry JSON, or changing hosted command-channel behavior.
 
-**Status:** planning and documentation only. JUB remains non-executable: no local workspace, no `jub` worker profile, no live backend runtime, and no GPT Action schema change.
+**Status as of Phase 3C-13:** `C:\projects\JUB` now exists locally as an inert docs-first workspace created by manual Tim write. JUB remains non-executable and shadow-only: no `jub` worker profile, no live backend runtime, no worker runtime, no live registry route, and no GPT Action schema exposure.
+
+See [`jub-workspace-access-boundary-v0.md`](./jub-workspace-access-boundary-v0.md) for the current baseline files, worker access boundary, manual-write protocol, and Phase 3C-13 allowlist.
 
 ## Phase 3C-10 Approval Packet
 
@@ -87,11 +89,12 @@ Stop before or during the future creation job if any condition is true:
 
 ### Next Jobs After Approved Workspace Creation
 
-After a separate approved creation job completes, the next jobs should be:
+After the approved inert creation job, the next jobs should be:
 
-1. Create the inert `C:\projects\JUB` workspace exactly within the approved docs-only scope.
+1. Maintain the inert `C:\projects\JUB` docs baseline through manual Tim writes unless worker workspace permissions are explicitly changed later.
 2. Build an inventory extraction map from TimFinance into JUB docs, inspect-only unless Tim separately approves edits.
-3. Add a shadow registry candidate file only if Tim explicitly approves that file, location, shape, and validation behavior.
+3. Classify dependencies and ownership boundaries for future extraction candidates.
+4. Add a shadow registry candidate file only if Tim explicitly approves that file, location, shape, and validation behavior.
 
 ## Recommended Creation Strategy
 
@@ -154,7 +157,7 @@ Minimal package/tooling is optional and should be added only if there is a concr
 Initial state must remain unchanged:
 
 - `JUB` is documentation/coordination only.
-- `C:\projects\JUB` does not exist until explicit Tim approval.
+- `C:\projects\JUB` exists locally as an inert docs-first workspace after explicit Tim approval and manual Tim write.
 - `target_worker_profile: jub` is invalid and must continue to be rejected.
 - `requested_by: jub` or `source_room: JUB` remains audit/handoff metadata only, not routing authorization.
 - `finance` continues to route to `TimFinance`.
@@ -271,10 +274,29 @@ Scope: propose or implement Tim-approved dry-run validation that can prove `JUB`
 
 Safe changes are limited to inert documentation under `docs/command-channel/` and narrow cross-links from existing docs. Do not modify runtime code, backend code, generated OpenAPI schemas, registry JSON, GPT UI configuration, environment files, protected-value files, external repositories, or deployment settings.
 
+## Safe Allowlist for Phase 3C-13
+
+Safe changes are limited to TimOS-Agent documentation that records the current JUB state and access boundary. Future JUB-side edits are manual-write only unless workspace permissions are later changed under a separate approval.
+
+Current allowed JUB planning work:
+
+- Docs/status inventory.
+- Extraction maps.
+- Dependency classification.
+
+Current no-go items:
+
+- No live registry profile `jub`.
+- No GPT Action schema exposure for `jub`.
+- No TimFinance code copy.
+- No protected-value files.
+- No backend runtime or worker runtime until a separate approval gate.
+
 ## Related
 
 - [`jub-lane-contract-v0.md`](./jub-lane-contract-v0.md)
 - [`jub-registry-dry-run-plan-v0.md`](./jub-registry-dry-run-plan-v0.md)
+- [`jub-workspace-access-boundary-v0.md`](./jub-workspace-access-boundary-v0.md)
 - [`room-lane-identity-v0.md`](./room-lane-identity-v0.md)
 - [`../command-channel-repo-routing.md`](../command-channel-repo-routing.md)
 - [`../command-channel-room-capabilities.yaml`](../command-channel-room-capabilities.yaml)
