@@ -1,6 +1,6 @@
 # Platform Handoff Ledger v0
 
-Phase 3C-26 updates the cross-repo command-channel state so future workers do not need chat history to know what is live, what is shadow-only, and which gates remain closed.
+Phase 3C-27 updates the cross-repo command-channel state so future workers do not need chat history to know what is live, what is shadow-only, and which gates remain closed.
 
 **Status:** documentation only. This ledger does not change registry routing, generated schemas, GPT UI Actions, backend runtime, worker runtime, external repos, protected-value files, or release state.
 
@@ -53,6 +53,19 @@ Recent JuCore commits observed:
 - `627de9c` Document command-channel shared contract
 - `c021426` chore: scaffold JuCore and Gsync workspace
 
+## JUB Remote Decision Snapshot
+
+Phase 3C-27 adds the JUB remote ownership decision packet at `docs\command-channel\jub-remote-ownership-decision-v0.md`.
+
+Current JUB recommendation:
+
+- Create a private GitHub repo named `JUB` under `timl0413-cloud`, unless Tim chooses a JuOS org.
+- Use `main` as the branch.
+- Do not connect the remote until Tim explicitly approves the exact URL.
+- Keep JUB shadow-only after any remote connection.
+
+JUB remains local-only at this handoff. No remote, branch, registry, generated schema, GPT UI, backend, worker runtime, protected-value, deploy, commit, or push action is approved by this ledger update.
+
 ## Contract Source References
 
 Treat these as source references for future planning. External repo paths are listed for handoff continuity only; do not read or edit them from a TimOS-Agent-only job unless a later task explicitly approves that scope.
@@ -61,6 +74,7 @@ Treat these as source references for future planning. External repo paths are li
 |---------------|----------------|
 | TimFinance command-channel contract manifest | `C:\projects\TimFinance\docs\command-channel\command-channel-contract-manifest-v0.md` |
 | JuCore remote ownership decision | `docs\command-channel\jucore-remote-ownership-decision-v0.md` |
+| JUB remote ownership decision | `docs\command-channel\jub-remote-ownership-decision-v0.md` |
 | JuCore shared command-channel contract docs | `C:\projects\JuCore\docs\command-channel\shared-command-channel-contract-v0.md` |
 | JuCore command-channel package layout plan | `C:\projects\JuCore\docs\command-channel\package-layout-plan-v0.md` |
 | JUB extraction map | `C:\projects\JUB\docs\extraction-map-v0.md` |
@@ -73,7 +87,7 @@ Treat these as source references for future planning. External repo paths are li
 
 ## Next Decision Gates
 
-1. JUB remote and ownership decision later; JUB remains shadow-only with no live profile now.
+1. Tim decision on JUB remote owner/name/visibility/branch/exact URL; JUB remains shadow-only with no live profile now.
 2. JuCore shared contract package implementation only after explicit approval.
 3. TimFinance backend extraction dry-run later; do not run it in this phase.
 4. Registry shadow candidate plan.
@@ -116,6 +130,7 @@ Allowed change:
 
 - `docs\command-channel\platform-handoff-ledger-v0.md`
 - `docs\command-channel\jucore-remote-ownership-decision-v0.md`
+- `docs\command-channel\jub-remote-ownership-decision-v0.md`
 - `docs\command-channel\jub-extraction-map-manual-write-packet-v0.md`
 
 Allowed validation commands:
@@ -125,4 +140,4 @@ Allowed validation commands:
 - `scripts\juos-station-doctor.ps1 -ReportOnly`
 - `git status --short`
 
-Everything else is out of scope for Phase 3C-26.
+Everything else is out of scope for Phase 3C-27.
