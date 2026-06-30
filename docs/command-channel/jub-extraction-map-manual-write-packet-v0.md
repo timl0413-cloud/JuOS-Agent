@@ -29,7 +29,7 @@ Draft content:
 
 This map records candidate ownership boundaries for a future JUB extraction. It is not an extraction approval, runtime scaffold, registry change, schema change, or deployment plan.
 
-**Current state:** JUB is inert and shadow-only. Live command-channel backend remains in TimFinance. JOA worker runtime remains in TimOS-Agent. JuCore shared command-channel contract material exists locally at commit `627de9c` and currently has no configured remote.
+**Current state:** JUB is inert and shadow-only. Live command-channel backend remains in TimFinance. JOA worker runtime remains in TimOS-Agent. JuCore shared command-channel contract material now has a private GitHub remote at `https://github.com/timl0413-cloud/JuCore.git`; `main` tracks `origin/main`.
 
 ## Guardrails
 
@@ -69,7 +69,7 @@ These are candidate areas only. Reconfirm exact paths from the Phase 3C-6 TimFin
 
 ## Shared Contract Candidates for JuCore
 
-JuCore is the candidate home for cross-repo contracts, not JUB runtime implementation. JuCore local commit note: `627de9c`, no configured remote at the time this map was drafted.
+JuCore is the candidate home for cross-repo contracts, not JUB runtime implementation. Phase 3C-26 supersedes the original local-only note: JuCore remote now exists as `timl0413-cloud/JuCore`, with `main` tracking `origin/main`.
 
 | Candidate contract | Possible JuCore disposition |
 |--------------------|-----------------------------|
@@ -80,7 +80,7 @@ JuCore is the candidate home for cross-repo contracts, not JUB runtime implement
 | Validation matrix for live profiles vs shadow candidates | Shared contract candidate, with runtime enforcement remaining in owning services. |
 | DB contract descriptions for jobs, approvals, diagnostics, and summaries | Shared documentation candidate; no DB migration implied. |
 
-Do not edit JuCore from this map. Any JuCore contract move requires a separate JuCore-scoped approval and a remote strategy decision.
+Do not edit JuCore from this map. Any JuCore contract move or shared package implementation requires a separate JuCore-scoped approval.
 
 ## JOA Runtime Pieces That Must Remain in TimOS-Agent
 
@@ -154,7 +154,7 @@ Set-Content -Path docs\extraction-map-v0.md -Encoding UTF8 -Value @'
 
 This map records candidate ownership boundaries for a future JUB extraction. It is not an extraction approval, runtime scaffold, registry change, schema change, or deployment plan.
 
-**Current state:** JUB is inert and shadow-only. Live command-channel backend remains in TimFinance. JOA worker runtime remains in TimOS-Agent. JuCore shared command-channel contract material exists locally at commit `627de9c` and currently has no configured remote.
+**Current state:** JUB is inert and shadow-only. Live command-channel backend remains in TimFinance. JOA worker runtime remains in TimOS-Agent. JuCore shared command-channel contract material now has a private GitHub remote at `https://github.com/timl0413-cloud/JuCore.git`; `main` tracks `origin/main`.
 
 ## Guardrails
 
@@ -194,7 +194,7 @@ These are candidate areas only. Reconfirm exact paths from the Phase 3C-6 TimFin
 
 ## Shared Contract Candidates for JuCore
 
-JuCore is the candidate home for cross-repo contracts, not JUB runtime implementation. JuCore local commit note: `627de9c`, no configured remote at the time this map was drafted.
+JuCore is the candidate home for cross-repo contracts, not JUB runtime implementation. Phase 3C-26 supersedes the original local-only note: JuCore remote now exists as `timl0413-cloud/JuCore`, with `main` tracking `origin/main`.
 
 | Candidate contract | Possible JuCore disposition |
 |--------------------|-----------------------------|
@@ -205,7 +205,7 @@ JuCore is the candidate home for cross-repo contracts, not JUB runtime implement
 | Validation matrix for live profiles vs shadow candidates | Shared contract candidate, with runtime enforcement remaining in owning services. |
 | DB contract descriptions for jobs, approvals, diagnostics, and summaries | Shared documentation candidate; no DB migration implied. |
 
-Do not edit JuCore from this map. Any JuCore contract move requires a separate JuCore-scoped approval and a remote strategy decision.
+Do not edit JuCore from this map. Any JuCore contract move or shared package implementation requires a separate JuCore-scoped approval.
 
 ## JOA Runtime Pieces That Must Remain in TimOS-Agent
 
