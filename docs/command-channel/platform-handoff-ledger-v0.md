@@ -1,6 +1,6 @@
 # Platform Handoff Ledger v0
 
-Phase 3C-27 updates the cross-repo command-channel state so future workers do not need chat history to know what is live, what is shadow-only, and which gates remain closed.
+Phase 3C-28 updates the cross-repo command-channel state so future workers do not need chat history to know what is live, what is shadow-only, and which gates remain closed.
 
 **Status:** documentation only. This ledger does not change registry routing, generated schemas, GPT UI Actions, backend runtime, worker runtime, external repos, protected-value files, or release state.
 
@@ -10,7 +10,7 @@ Phase 3C-27 updates the cross-repo command-channel state so future workers do no
 |-------------|---------------|----------------------|
 | TimOS-Agent / JOA | Local worker/runtime lane at `C:\projects\TimOS-Agent`; worker profile `joa`. | JOA worker and station tooling stay in TimOS-Agent. |
 | TimFinance / live command-channel backend | Live hosted command-channel backend remains in TimFinance. | Backend extraction is not approved or ready. Finance and `ob` routes remain TimFinance-owned. |
-| JUB / inert local-only workspace | `C:\projects\JUB` exists as local-only, docs-first, inert shadow workspace. | No live routing, backend runtime, worker runtime, schema exposure, or protected-value material belongs there. |
+| JUB / inert remote-backed workspace | `C:\projects\JUB` is backed by private GitHub repo `timl0413-cloud/JUB`; `main` tracks `origin/main` at `https://github.com/timl0413-cloud/JUB.git`. | Future platform-operation backend lane only. It remains inert/shadow-only with no live routing, backend runtime, worker runtime, schema exposure, or protected-value material. |
 | JuCore / shared contracts and GSync scaffold | `C:\projects\JuCore` is backed by private GitHub repo `timl0413-cloud/JuCore`; `main` tracks `origin/main` at `https://github.com/timl0413-cloud/JuCore.git`. | JuCore is for shared contracts and the GSync scaffold. It is not the hosted backend, not worker runtime, and does not change live routing. |
 | GSync / knowledge continuity | Knowledge-continuity lane uses `juos-knowledge-vault` and packet/status handoff patterns. | GSync preserves cross-room context; it is not JUB runtime authority. |
 
@@ -27,7 +27,7 @@ These capabilities are considered validated in the current platform state:
 ## Current Blockers and Risks
 
 - TimFinance backend extraction is not ready.
-- JUB is not live and must remain shadow-only.
+- JUB is remote-backed but not live and must remain shadow-only.
 - JuCore now has a remote, but shared contract package implementation is not approved.
 - TimFinance working tree may contain unrelated pending files; do not clean, revert, or depend on that tree without a separate TimFinance-scoped approval.
 - Worker write access to `C:\projects\JUB` may require Tim manual writes.
@@ -53,18 +53,24 @@ Recent JuCore commits observed:
 - `627de9c` Document command-channel shared contract
 - `c021426` chore: scaffold JuCore and Gsync workspace
 
-## JUB Remote Decision Snapshot
+## JUB Remote Handoff Snapshot
 
-Phase 3C-27 adds the JUB remote ownership decision packet at `docs\command-channel\jub-remote-ownership-decision-v0.md`.
+Phase 3C-28 records that Tim completed the approved JUB remote setup after the Phase 3C-27 decision packet.
 
-Current JUB recommendation:
+Latest observed JUB remote state at this handoff:
 
-- Create a private GitHub repo named `JUB` under `timl0413-cloud`, unless Tim chooses a JuOS org.
-- Use `main` as the branch.
-- Do not connect the remote until Tim explicitly approves the exact URL.
-- Keep JUB shadow-only after any remote connection.
+| Item | Snapshot |
+|------|----------|
+| Local path | `C:\projects\JUB` |
+| Remote | `origin https://github.com/timl0413-cloud/JUB.git` |
+| Repo owner/name | `timl0413-cloud/JUB` |
+| Branch tracking | `main` tracks `origin/main` |
+| Remote sync | First remote sync completed |
+| Working tree | Clean at time of handoff |
+| Key commit | `06f4ff1` Initialize inert JUB workspace docs |
+| Role | Future platform-operation backend lane; currently inert/shadow-only |
 
-JUB remains local-only at this handoff. No remote, branch, registry, generated schema, GPT UI, backend, worker runtime, protected-value, deploy, commit, or push action is approved by this ledger update.
+JUB remote presence is now expected. It does not approve live routing, a live registry profile `jub`, GPT Action schema exposure for `jub`, backend runtime in JUB, worker runtime in JUB, TimFinance code movement, protected-value material, deploy, commit, or push action from TimOS-Agent.
 
 ## Contract Source References
 
@@ -87,11 +93,10 @@ Treat these as source references for future planning. External repo paths are li
 
 ## Next Decision Gates
 
-1. Tim decision on JUB remote owner/name/visibility/branch/exact URL; JUB remains shadow-only with no live profile now.
-2. JuCore shared contract package implementation only after explicit approval.
-3. TimFinance backend extraction dry-run later; do not run it in this phase.
+1. JuCore shared contract package implementation only after explicit approval.
+2. TimFinance backend extraction dry-run later; do not run it in this phase.
+3. Live JUB activation only after separate approval.
 4. Registry shadow candidate plan.
-5. Backend extraction dry-run only after explicit approval.
 
 ## No-Go Items
 
@@ -99,6 +104,8 @@ Treat these as source references for future planning. External repo paths are li
 - No GPT Action schema `jub` exposure.
 - No TimFinance code copy into JUB.
 - No backend runtime in JUB.
+- No worker runtime in JUB.
+- JUB remote does not change live routing.
 - No live routing change from the JuCore remote.
 - No JuCore shared contract package implementation without explicit approval.
 - No protected-value files.
@@ -129,9 +136,7 @@ Expected interpretation:
 Allowed change:
 
 - `docs\command-channel\platform-handoff-ledger-v0.md`
-- `docs\command-channel\jucore-remote-ownership-decision-v0.md`
 - `docs\command-channel\jub-remote-ownership-decision-v0.md`
-- `docs\command-channel\jub-extraction-map-manual-write-packet-v0.md`
 
 Allowed validation commands:
 
@@ -140,4 +145,4 @@ Allowed validation commands:
 - `scripts\juos-station-doctor.ps1 -ReportOnly`
 - `git status --short`
 
-Everything else is out of scope for Phase 3C-27.
+Everything else is out of scope for Phase 3C-28.
