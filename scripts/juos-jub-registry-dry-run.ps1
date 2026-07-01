@@ -96,6 +96,10 @@ if (-not (Test-Path -LiteralPath $SchemaFullPath)) {
 
 $Registry = Get-Content -Raw -Path $RegistryFullPath | ConvertFrom-Json
 $ProfileNames = @($Registry.profiles.PSObject.Properties.Name | Sort-Object)
+$ExpectedActiveProfiles = @("finance", "gsync", "joa", "jucore", "nova", "ob", "stuf")
+$LegacyOrShadowProfiles = @("jub", "spacea", "ministry")
+
+Write-Check "active registry profile set" (@(Compare-Object -ReferenceObject $ExpectedActiveProfiles -DifferenceObject $ProfileNames).Count -eq 0) ($ProfileNames -join ", ")
 
 $Baseline = @(
   @{ Profile = "joa"; RepoRef = "TimOS-Agent"; WorkspaceRef = "C:\projects\TimOS-Agent"; Detail = "JOA stays in TimOS-Agent" },
@@ -121,6 +125,14 @@ $SchemaLines = Get-Content -Path $SchemaFullPath
 $TargetWorkerProfileEnums = Get-TargetWorkerProfileEnumText $SchemaLines
 $JubInTargetWorkerProfileEnum = $TargetWorkerProfileEnums -match "(?m)[-]\s+'?$([Regex]::Escape($CandidateProfile))'?\s*$"
 Write-Check "no action schema target_worker_profile $CandidateProfile" (-not $JubInTargetWorkerProfileEnum) $SchemaPath
+
+foreach ($Profile in $ExpectedActiveProfiles) {
+  Write-Check "action schema active profile $Profile" ($TargetWorkerProfileEnums -match "(?m)[-]\s+'?$([Regex]::Escape($Profile))'?\s*$") "target_worker_profile"
+}
+
+foreach ($Profile in $LegacyOrShadowProfiles) {
+  Write-Check "no action schema legacy/shadow profile $Profile" (-not ($TargetWorkerProfileEnums -match "(?m)[-]\s+'?$([Regex]::Escape($Profile))'?\s*$")) "target_worker_profile"
+}
 
 $JubLiteralInSchema = $SchemaText -match "(?i)\bjub\b"
 Write-Check "no action schema literal $CandidateProfile" (-not $JubLiteralInSchema) "shadow JUB must stay out of generated GPT Action schema"

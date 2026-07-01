@@ -35,6 +35,16 @@ if (-not (Test-Path $RegistryFullPath)) {
 
 $Registry = Get-Content -Raw -Path $RegistryFullPath | ConvertFrom-Json
 $Profiles = @($Registry.profiles.PSObject.Properties.Name | Sort-Object)
+$ExpectedActiveProfiles = @("finance", "gsync", "joa", "jucore", "nova", "ob", "stuf")
+$LegacyOrShadowProfiles = @("jub", "spacea", "ministry")
+
+Write-Host "JuOS action doctor"
+Write-Host "Mode: report-only validation; no registry, schema, worker, or backend files are modified."
+Write-Host "Registry-active / GPT-action-exposed profiles expected: $($ExpectedActiveProfiles -join ', ')"
+Write-Host "Shadow or legacy names omitted from GPT Action exposure: $($LegacyOrShadowProfiles -join ', ')"
+Write-Host ""
+
+Add-Check "active registry profile set" (@(Compare-Object -ReferenceObject $ExpectedActiveProfiles -DifferenceObject $Profiles).Count -eq 0) ($Profiles -join ", ")
 
 Add-Check "generated schema exists" (Test-Path $SchemaFullPath) $SchemaPath
 if (-not (Test-Path $SchemaFullPath)) {
@@ -76,6 +86,10 @@ for ($i = 0; $i -lt $Lines.Count; $i++) {
 
 foreach ($Profile in $Profiles) {
   Add-Check "profile enum $Profile" ($AllEnumText -match "(?m)[-]\s+'?$([Regex]::Escape($Profile))'?\s*$") "target_worker_profile"
+}
+
+foreach ($Profile in $LegacyOrShadowProfiles) {
+  Add-Check "no profile enum $Profile" (-not ($AllEnumText -match "(?m)[-]\s+'?$([Regex]::Escape($Profile))'?\s*$")) "target_worker_profile"
 }
 
 $LongDescriptions = @()
