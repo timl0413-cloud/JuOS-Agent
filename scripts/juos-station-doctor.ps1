@@ -75,6 +75,7 @@ foreach ($Profile in $Profiles) {
 
 $WorkerLauncher = Join-Path $Root "scripts\start-juos-worker.ps1"
 $WorkerScript = Join-Path $Root "scripts\command-channel-worker.js"
+$ContractParityScript = Join-Path $Root "scripts\juos-command-channel-contract-parity-test.js"
 Write-Check "worker launcher exists" (Test-Path $WorkerLauncher) "scripts\start-juos-worker.ps1"
 Write-Check "worker script exists" (Test-Path $WorkerScript) "scripts\command-channel-worker.js"
 
@@ -97,6 +98,29 @@ foreach ($TokenName in $TokenNames) {
   }
 }
 Write-Check "token env present" ($PresentTokens.Count -gt 0) $(if ($PresentTokens.Count -gt 0) { ($PresentTokens -join ", ") } else { "expected one of: $($TokenNames -join ', ')" })
+
+if ($ReportOnly) {
+  Write-Host ""
+  Write-Check "command-channel contract parity script exists" (Test-Path $ContractParityScript) "scripts\juos-command-channel-contract-parity-test.js"
+
+  if (Test-Path $ContractParityScript) {
+    $Node = Get-Command node -ErrorAction SilentlyContinue
+    Write-Check "Node command available for contract parity" ($null -ne $Node) $(if ($Node) { $Node.Source } else { "node not found" })
+
+    if ($Node) {
+      Write-Host ""
+      Push-Location $Root
+      try {
+        & $Node.Source "scripts\juos-command-channel-contract-parity-test.js"
+        $ContractParityExitCode = $LASTEXITCODE
+      } finally {
+        Pop-Location
+      }
+
+      Write-Check "command-channel contract parity" ($ContractParityExitCode -eq 0) "node scripts\juos-command-channel-contract-parity-test.js exited $ContractParityExitCode"
+    }
+  }
+}
 
 Write-Host ""
 Write-Host "Report-only: no workers started, no jobs claimed."
