@@ -140,10 +140,56 @@ try {
 }
 
 const {
+  CONTRACT_MANIFEST,
   REGISTRY_ACTIVE_WORKER_PROFILE_VALUES,
   ACTION_EXPOSED_WORKER_PROFILE_VALUES,
+  isBackendAcceptedWorkerProfile,
+  isRegistryActiveWorkerProfile,
+  isActionExposedWorkerProfile,
 } = contracts;
 
+addCheck(
+  "CONTRACT_MANIFEST exported",
+  CONTRACT_MANIFEST !== null && typeof CONTRACT_MANIFEST === "object",
+  CONTRACT_MANIFEST && CONTRACT_MANIFEST.contract_name
+    ? `${CONTRACT_MANIFEST.contract_name}@${CONTRACT_MANIFEST.contract_version}`
+    : typeof CONTRACT_MANIFEST
+);
+addCheck(
+  "JuCore manifest docs-only reference readiness",
+  CONTRACT_MANIFEST?.readiness?.docs_only_reference === true,
+  `actual=${String(CONTRACT_MANIFEST?.readiness?.docs_only_reference)}`
+);
+addCheck(
+  "JuCore manifest test-only import readiness",
+  CONTRACT_MANIFEST?.readiness?.test_only_import === true,
+  `actual=${String(CONTRACT_MANIFEST?.readiness?.test_only_import)}`
+);
+addCheck(
+  "JuCore manifest runtime import readiness",
+  CONTRACT_MANIFEST?.readiness?.runtime_import === false,
+  `actual=${String(CONTRACT_MANIFEST?.readiness?.runtime_import)}`
+);
+addCheck(
+  "JuCore manifest no consumer runtime imports policy",
+  CONTRACT_MANIFEST?.module_policy?.no_consumer_runtime_imports === true,
+  `actual=${String(CONTRACT_MANIFEST?.module_policy?.no_consumer_runtime_imports)}`
+);
+addCheck(
+  "JuCore manifest JUB backend accepted",
+  CONTRACT_MANIFEST?.jub_policy_summary?.backend_accepted === true,
+  `actual=${String(CONTRACT_MANIFEST?.jub_policy_summary?.backend_accepted)}`
+);
+addCheck(
+  "JuCore manifest JUB not registry active",
+  CONTRACT_MANIFEST?.jub_policy_summary?.registry_active === false,
+  `actual=${String(CONTRACT_MANIFEST?.jub_policy_summary?.registry_active)}`
+);
+addCheck(
+  "JuCore manifest JUB not action exposed",
+  CONTRACT_MANIFEST?.jub_policy_summary?.action_exposed === false,
+  `actual=${String(CONTRACT_MANIFEST?.jub_policy_summary?.action_exposed)}`
+);
 addCheck(
   "REGISTRY_ACTIVE_WORKER_PROFILE_VALUES exported",
   Array.isArray(REGISTRY_ACTIVE_WORKER_PROFILE_VALUES),
@@ -158,9 +204,27 @@ addCheck(
     ? formatSet(ACTION_EXPOSED_WORKER_PROFILE_VALUES)
     : typeof ACTION_EXPOSED_WORKER_PROFILE_VALUES
 );
+addCheck(
+  "isBackendAcceptedWorkerProfile validator exported",
+  typeof isBackendAcceptedWorkerProfile === "function",
+  typeof isBackendAcceptedWorkerProfile
+);
+addCheck(
+  "isRegistryActiveWorkerProfile validator exported",
+  typeof isRegistryActiveWorkerProfile === "function",
+  typeof isRegistryActiveWorkerProfile
+);
+addCheck(
+  "isActionExposedWorkerProfile validator exported",
+  typeof isActionExposedWorkerProfile === "function",
+  typeof isActionExposedWorkerProfile
+);
 if (
   !Array.isArray(REGISTRY_ACTIVE_WORKER_PROFILE_VALUES) ||
-  !Array.isArray(ACTION_EXPOSED_WORKER_PROFILE_VALUES)
+  !Array.isArray(ACTION_EXPOSED_WORKER_PROFILE_VALUES) ||
+  typeof isBackendAcceptedWorkerProfile !== "function" ||
+  typeof isRegistryActiveWorkerProfile !== "function" ||
+  typeof isActionExposedWorkerProfile !== "function"
 ) {
   process.exit(1);
 }
@@ -176,6 +240,21 @@ addCheck(
   "registry active profiles match JuCore contract",
   sameSet(registryProfiles, REGISTRY_ACTIVE_WORKER_PROFILE_VALUES),
   `actual=[${formatSet(registryProfiles)}] expected=[${formatSet(REGISTRY_ACTIVE_WORKER_PROFILE_VALUES)}]`
+);
+addCheck(
+  "registry active profiles pass JuCore validator",
+  registryProfiles.every((profile) => isRegistryActiveWorkerProfile(profile)),
+  `checked=[${formatSet(registryProfiles)}]`
+);
+addCheck(
+  "jub accepted by JuCore backend validator",
+  isBackendAcceptedWorkerProfile("jub"),
+  "profile=jub"
+);
+addCheck(
+  "jub rejected by JuCore registry validator",
+  !isRegistryActiveWorkerProfile("jub"),
+  "profile=jub"
 );
 addCheck(
   "jub absent from registry profiles",
@@ -202,12 +281,27 @@ addCheck(
   sameSet(actionEnumValues, ACTION_EXPOSED_WORKER_PROFILE_VALUES),
   `actual=[${formatSet(actionEnumValues)}] expected=[${formatSet(ACTION_EXPOSED_WORKER_PROFILE_VALUES)}]`
 );
+addCheck(
+  "action schema profiles pass JuCore validator",
+  actionEnumValues.every((profile) => isActionExposedWorkerProfile(profile)),
+  `checked=[${formatSet(actionEnumValues)}]`
+);
+addCheck(
+  "jub rejected by JuCore action validator",
+  !isActionExposedWorkerProfile("jub"),
+  "profile=jub"
+);
 
 for (const block of enumBlocks) {
   addCheck(
     `action schema enum block line ${block.line} matches JuCore contract`,
     sameSet(block.values, ACTION_EXPOSED_WORKER_PROFILE_VALUES),
     `actual=[${formatSet(block.values)}]`
+  );
+  addCheck(
+    `action schema enum block line ${block.line} passes JuCore validator`,
+    block.values.every((profile) => isActionExposedWorkerProfile(profile)),
+    `checked=[${formatSet(block.values)}]`
   );
 }
 
